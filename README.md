@@ -133,6 +133,7 @@ Config files are layered — global defaults, then project overrides:
     "toolset": "core",
     "autoContext": "off",
     "confirmIndex": true,
+    "connectTimeoutMs": 10000,
     "command": "bun",
     "args": ["x", "kotadb@next", "--stdio", "--toolset", "core"]
   },
@@ -155,6 +156,7 @@ Config files are layered — global defaults, then project overrides:
 |--------|---------|-------------|
 | `kota.autoContext` | `"off"` | Auto-inject task context: `"off"`, `"onPaths"` (1–3 file paths in prompt), `"always"` |
 | `kota.confirmIndex` | `true` | Prompt before first indexing |
+| `kota.connectTimeoutMs` | `10000` | Connection timeout in milliseconds for Kota MCP startup |
 | `prune.keepRecentTurns` | `2` | Turns to keep intact before pruning |
 | `prune.maxToolChars` | `1200` | Max chars per tool result before truncation |
 | `prune.adaptive` | `true` | Tighten pruning when context usage is high |

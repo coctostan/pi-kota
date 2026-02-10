@@ -22,6 +22,10 @@ describe("config", () => {
     expect(DEFAULT_CONFIG.kota.args).toContain("kotadb@next");
   });
 
+  it("includes a default connectTimeoutMs", () => {
+    expect(DEFAULT_CONFIG.kota.connectTimeoutMs).toBeGreaterThan(0);
+  });
+
   it("loads project config from projectRoot when cwd is nested", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "pi-kota-config-"));
     const nested = path.join(root, "a", "b");

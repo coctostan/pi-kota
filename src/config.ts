@@ -9,6 +9,7 @@ export interface PiKotaConfig {
     toolset: "core";
     autoContext: AutoContextMode;
     confirmIndex: boolean;
+    connectTimeoutMs: number;
     command: string;
     args: string[];
   };
@@ -29,6 +30,7 @@ export const DEFAULT_CONFIG: PiKotaConfig = {
     toolset: "core",
     autoContext: "off",
     confirmIndex: true,
+    connectTimeoutMs: 10000,
     command: "bun",
     args: ["x", "kotadb@next", "--stdio", "--toolset", "core"],
   },
