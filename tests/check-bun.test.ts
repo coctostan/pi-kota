@@ -88,4 +88,24 @@ describe("postinstall bun check", () => {
     expect(result.status).toBe(0);
     expect(`${result.stdout}${result.stderr}`.trim()).toBe("");
   });
+
+  it("finds bunx.cmd on PATH when PATHEXT contains .CMD", async () => {
+    const tmp = await makeTempDir();
+    const binDir = path.join(tmp, "bin");
+    await fs.mkdir(binDir, { recursive: true });
+
+    await makeExe(binDir, "bunx.cmd", "#!/bin/sh\nexit 0\n");
+
+    const result = spawnSync(process.execPath, ["scripts/check-bun.js"], {
+      cwd: process.cwd(),
+      env: { ...process.env, PATH: binDir, PATHEXT: ".CMD;.EXE" },
+      encoding: "utf8",
+    });
+
+    const output = `${result.stdout}${result.stderr}`;
+    expect(result.status).toBe(0);
+    expect(output).toContain("'bun' is not on PATH");
+    expect(output).toContain("Found bunx at:");
+    expect(output).toContain("bunx.cmd");
+  });
 });

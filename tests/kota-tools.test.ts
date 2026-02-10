@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { callBudgeted, formatToolError } from "../src/kota/tools.js";
 
 describe("formatToolError", () => {
@@ -36,6 +36,29 @@ describe("callBudgeted", () => {
 
     expect(onTransportErrorCalled).toBe(true);
     expect(result.ok).toBe(false);
+  });
+
+  it("does not call listTools for transport errors", async () => {
+    const listTools = vi.fn(async () => ["search"]);
+    const onTransportError = vi.fn();
+
+    const result = await callBudgeted({
+      toolName: "search",
+      args: {},
+      maxChars: 5000,
+      listTools,
+      callTool: async () => {
+        const err = new Error("write EPIPE") as Error & { code: string };
+        err.code = "EPIPE";
+        throw err;
+      },
+      onTransportError,
+    });
+
+    expect(onTransportError).toHaveBeenCalledTimes(1);
+    expect(listTools).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
+    expect(result.text).toContain("Available MCP tools: (none)");
   });
 
   it("falls back to JSON when no text blocks in MCP content", async () => {

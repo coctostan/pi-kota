@@ -71,11 +71,15 @@ export async function callBudgeted(opts: {
       ok: true,
     };
   } catch (e) {
-    if (isTransportError(e)) {
+    const transportError = isTransportError(e);
+    if (transportError) {
       opts.onTransportError?.(e);
     }
 
-    const available = await opts.listTools().catch(() => [] as string[]);
+    const available = transportError
+      ? ([] as string[])
+      : await opts.listTools().catch(() => [] as string[]);
+
     return {
       text: truncateChars(formatToolError(opts.toolName, available, e), opts.maxChars),
       raw: null,

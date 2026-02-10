@@ -11,18 +11,47 @@ function tryExec(command, args) {
   }
 }
 
+function pathCandidates(binaryName) {
+  const candidates = [binaryName];
+
+  // If the caller already provides an extension, don't add PATHEXT variants.
+  if (path.extname(binaryName)) return candidates;
+
+  const pathext = process.env.PATHEXT;
+  if (!pathext) return candidates;
+
+  const exts = pathext
+    .split(";")
+    .map((ext) => ext.trim())
+    .filter(Boolean)
+    .map((ext) => (ext.startsWith(".") ? ext : `.${ext}`));
+
+  for (const ext of exts) {
+    const lower = ext.toLowerCase();
+    const upper = ext.toUpperCase();
+    candidates.push(`${binaryName}${ext}`);
+    if (lower !== ext) candidates.push(`${binaryName}${lower}`);
+    if (upper !== ext && upper !== lower) candidates.push(`${binaryName}${upper}`);
+  }
+
+  return [...new Set(candidates)];
+}
+
 function findOnPath(binaryName) {
   const pathValue = process.env.PATH ?? "";
+  const candidates = pathCandidates(binaryName);
 
   for (const dir of pathValue.split(path.delimiter)) {
     if (!dir) continue;
 
-    const fullPath = path.join(dir, binaryName);
-    try {
-      fs.accessSync(fullPath, fs.constants.X_OK);
-      return fullPath;
-    } catch {
-      // continue
+    for (const candidate of candidates) {
+      const fullPath = path.join(dir, candidate);
+      try {
+        fs.accessSync(fullPath, fs.constants.X_OK);
+        return fullPath;
+      } catch {
+        // continue
+      }
     }
   }
 

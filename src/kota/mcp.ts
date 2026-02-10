@@ -107,6 +107,12 @@ export class KotaMcpClient {
         throw timeoutError;
       }
 
+      const closeAttempt = transport.close().catch(() => {});
+      await Promise.race([
+        closeAttempt,
+        new Promise<void>((resolve) => setTimeout(resolve, TIMEOUT_CLOSE_WAIT_CAP_MS)),
+      ]);
+
       const stderrSnippet = toStderrSnippet(stderrText);
       if ((this.stdio.command === "bun" && isSpawnEnoent(error)) || hasBunMissingInStderr(stderrText)) {
         throw new Error(BUN_NOT_FOUND_MESSAGE);
