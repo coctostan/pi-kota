@@ -17,6 +17,14 @@ const HAS_BUNX = (() => {
 
 const e2eDescribe = HAS_BUNX ? describe : describe.skip;
 
+const repoRoot = process.cwd();
+const piConfigPath = path.join(repoRoot, ".pi", "pi-kota.json");
+const createdBlobDirs = new Set<string>();
+
+let originalConfigLoaded = false;
+let hadOriginalConfig = false;
+let originalConfigContent = "";
+
 function makeCtx(overrides?: Partial<any>) {
   return {
     cwd: process.cwd(),
@@ -31,15 +39,31 @@ function makeCtx(overrides?: Partial<any>) {
   };
 }
 
-async function setupE2eConfig(repoRoot = process.cwd()) {
-  const piDir = path.join(repoRoot, ".pi");
-  const blobDir = path.join(repoRoot, ".tmp/e2e-blobs");
+async function loadOriginalConfigIfNeeded() {
+  if (originalConfigLoaded) return;
 
+  originalConfigLoaded = true;
+  try {
+    originalConfigContent = await fs.readFile(piConfigPath, "utf8");
+    hadOriginalConfig = true;
+  } catch {
+    hadOriginalConfig = false;
+  }
+}
+
+async function setupE2eConfig() {
+  await loadOriginalConfigIfNeeded();
+
+  const piDir = path.join(repoRoot, ".pi");
+  const tmpDir = path.join(repoRoot, ".tmp");
   await fs.mkdir(piDir, { recursive: true });
-  await fs.mkdir(blobDir, { recursive: true });
+  await fs.mkdir(tmpDir, { recursive: true });
+
+  const blobDir = await fs.mkdtemp(path.join(tmpDir, "e2e-blobs-"));
+  createdBlobDirs.add(blobDir);
 
   await fs.writeFile(
-    path.join(piDir, "pi-kota.json"),
+    piConfigPath,
     JSON.stringify(
       {
         kota: { confirmIndex: true },
@@ -51,6 +75,8 @@ async function setupE2eConfig(repoRoot = process.cwd()) {
     ),
     "utf8",
   );
+
+  return { blobDir };
 }
 
 async function rmSafe(p: string) {
@@ -71,15 +97,20 @@ async function pathExists(p: string): Promise<boolean> {
 }
 
 afterAll(async () => {
-  const repoRoot = process.cwd();
-  const piDir = path.join(repoRoot, ".pi");
-  const tmpDir = path.join(repoRoot, ".tmp");
+  for (const blobDir of createdBlobDirs) {
+    await rmSafe(blobDir);
+    expect(await pathExists(blobDir)).toBe(false);
+  }
 
-  await rmSafe(piDir);
-  await rmSafe(tmpDir);
+  if (!originalConfigLoaded) return;
 
-  expect(await pathExists(piDir)).toBe(false);
-  expect(await pathExists(tmpDir)).toBe(false);
+  if (hadOriginalConfig) {
+    await fs.writeFile(piConfigPath, originalConfigContent, "utf8");
+    expect(await pathExists(piConfigPath)).toBe(true);
+  } else {
+    await rmSafe(piConfigPath);
+    expect(await pathExists(piConfigPath)).toBe(false);
+  }
 });
 
 describe("e2e smoke (wiring)", () => {
@@ -107,9 +138,7 @@ describe("e2e smoke (lifecycle)", () => {
     const api = createMockApi();
     extension(api.pi as any);
 
-    const repoRoot = process.cwd();
-    await setupE2eConfig(repoRoot);
-
+    await setupE2eConfig();
     const ctx = makeCtx({ cwd: repoRoot });
 
     await api.fire("session_start", {}, ctx);
@@ -128,9 +157,8 @@ e2eDescribe("e2e smoke (real kotadb)", () => {
       const api = createMockApi();
       extension(api.pi as any);
 
-      const cwd = process.cwd();
-      await setupE2eConfig(cwd);
-      const ctx = makeCtx({ cwd });
+      const { blobDir } = await setupE2eConfig();
+      const ctx = makeCtx({ cwd: repoRoot });
 
       try {
         await api.fire("session_start", {}, ctx);
@@ -179,6 +207,7 @@ e2eDescribe("e2e smoke (real kotadb)", () => {
         expect(impactRes.details?.pinned).toBe(true);
       } finally {
         await api.fire("session_shutdown", {}, ctx);
+        await rmSafe(blobDir);
       }
     },
     120_000,
@@ -190,55 +219,61 @@ describe("e2e smoke (prune + blobs)", () => {
     const api = createMockApi();
     extension(api.pi as any);
 
-    const cwd = process.cwd();
-    await setupE2eConfig(cwd);
-    const ctx = makeCtx({ cwd });
+    await setupE2eConfig();
+    const ctx = makeCtx({ cwd: repoRoot });
 
-    await api.fire("session_start", {}, ctx);
+    try {
+      await api.fire("session_start", {}, ctx);
 
-    const long = "x".repeat(200);
-    const messages = [
-      { role: "user", content: [{ type: "text", text: "turn1" }] },
-      { role: "toolResult", toolName: "kota_search", content: [{ type: "text", text: long }] },
-      { role: "user", content: [{ type: "text", text: "turn2" }] },
-      { role: "toolResult", toolName: "read", content: [{ type: "text", text: long }] },
-      { role: "user", content: [{ type: "text", text: "turn3" }] },
-    ];
+      const long = "x".repeat(200);
+      const messages = [
+        { role: "user", content: [{ type: "text", text: "turn1" }] },
+        { role: "toolResult", toolName: "kota_search", content: [{ type: "text", text: long }] },
+        { role: "user", content: [{ type: "text", text: "turn2" }] },
+        { role: "toolResult", toolName: "read", content: [{ type: "text", text: long }] },
+        { role: "user", content: [{ type: "text", text: "turn3" }] },
+      ];
 
-    const [res] = await api.fire("context", { messages }, ctx);
-    const pruned = (res?.messages ?? []) as any[];
+      const [res] = await api.fire("context", { messages }, ctx);
+      const pruned = (res?.messages ?? []) as any[];
 
-    const firstTool = pruned.find((m) => m?.role === "toolResult" && m?.toolName === "kota_search");
-    expect(firstTool?.details?.pruned).toBe(true);
-    expect(String(firstTool?.content?.[0]?.text ?? "")).toContain("(Pruned)");
-
-    await api.fire("session_shutdown", {}, ctx);
+      const firstTool = pruned.find((m) => m?.role === "toolResult" && m?.toolName === "kota_search");
+      expect(firstTool?.details?.pruned).toBe(true);
+      expect(String(firstTool?.content?.[0]?.text ?? "")).toContain("(Pruned)");
+    } finally {
+      await api.fire("session_shutdown", {}, ctx);
+    }
   });
 
   it("writes a blob + truncates tool_result output", async () => {
     const api = createMockApi();
     extension(api.pi as any);
 
-    const cwd = process.cwd();
-    await setupE2eConfig(cwd);
-    const ctx = makeCtx({ cwd });
-    await api.fire("session_start", {}, ctx);
+    const { blobDir } = await setupE2eConfig();
+    const ctx = makeCtx({ cwd: repoRoot });
 
-    const big = "y".repeat(500);
-    const [res] = await api.fire(
-      "tool_result",
-      {
-        toolName: "kota_search",
-        content: [{ type: "text", text: big }],
-        details: {},
-      },
-      ctx,
-    );
+    try {
+      await api.fire("session_start", {}, ctx);
 
-    expect(String(res?.content?.[0]?.text ?? "")).toContain("Output truncated");
-    expect(res?.details?.truncated).toBe(true);
-    expect(String(res?.details?.blobPath ?? "")).toContain(".tmp/e2e-blobs");
+      const big = "y".repeat(500);
+      const [res] = await api.fire(
+        "tool_result",
+        {
+          toolName: "kota_search",
+          content: [{ type: "text", text: big }],
+          details: {},
+        },
+        ctx,
+      );
 
-    await api.fire("session_shutdown", {}, ctx);
+      const blobPath = String(res?.details?.blobPath ?? "");
+      expect(String(res?.content?.[0]?.text ?? "")).toContain("Output truncated");
+      expect(res?.details?.truncated).toBe(true);
+      expect(blobPath).toContain(".tmp/e2e-blobs-");
+      expect(blobPath.startsWith(blobDir)).toBe(true);
+      await fs.access(blobPath);
+    } finally {
+      await api.fire("session_shutdown", {}, ctx);
+    }
   });
 });
