@@ -315,7 +315,7 @@ export default function (pi: ExtensionAPI) {
       if (!state.config) throw new Error("pi-kota: config not loaded");
 
       const p = (params as { path?: string }).path ?? state.repoRoot ?? ctx.cwd;
-      const normalizedPath = normalizeRepoPath(p);
+      const normalizedPath = normalizeRepoPath(p, ctx.cwd);
       const res = await callKotaToolStrict(ctx, "index", { path: normalizedPath });
       state.indexedRepoRoot = normalizedPath;
 

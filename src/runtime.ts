@@ -16,8 +16,9 @@ export interface RuntimeState {
   mcp: KotaMcpClient | null;
 }
 
-export function normalizeRepoPath(p: string): string {
-  return path.normalize(path.resolve(p));
+export function normalizeRepoPath(p: string, baseDir?: string): string {
+  const absolute = baseDir ? path.resolve(baseDir, p) : path.resolve(p);
+  return path.normalize(absolute);
 }
 
 export function createInitialRuntimeState(): RuntimeState {

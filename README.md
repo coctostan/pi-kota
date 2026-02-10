@@ -2,77 +2,199 @@
 
 # pi-kota
 
-KotaDB thin wrapper + context pruning extension for **pi** (TypeScript/JavaScript repos).
+> **Code intelligence that doesn't eat your context window.**
 
-## What it provides
+A [pi](https://github.com/mariozechner/pi-mono) extension that gives your coding agent a persistent, dependency-aware brain for TypeScript and JavaScript repos — powered by [KotaDB](https://github.com/nicobailon/kotadb) over MCP, with built-in context pruning to keep long sessions sharp.
 
-- Bounded-output `kota_*` tools backed by KotaDB over MCP stdio
-- Session context pruning to keep long runs lean
-- Tool-result truncation with blob caching for recoverability
+---
 
-## Prerequisites
+## ✨ What It Does
 
-`pi-kota` requires Bun tooling to launch KotaDB:
+| Problem | pi-kota's Answer |
+|---------|-----------------|
+| Agent repeatedly reads large files to answer "what depends on X?" | `kota_deps` — instant dependency graph from a persistent index |
+| 30-turn sessions bloat with stale tool output | Context pruning removes old payloads, preserves meaning + rehydration paths |
+| Impact analysis requires the agent to trace imports manually | `kota_impact` — change impact summary, pinned so it survives pruning |
+| Large tool results blow up the context budget | Automatic truncation + blob cache — full output recoverable on demand |
 
-- `bun`
-- `bunx`
+### The Short Version
 
-Quick check:
-
-```bash
-bun --version
-bunx --version
+```
+KotaDB = persistent code index (deps, symbols, usages, impact)
+pi-kota = thin wrapper + context governor (bounded output, pruning, blob cache)
 ```
 
-## Install the extension
+You get fast, bounded queries over your codebase without raw file dumps accumulating in the conversation.
 
-You can place the extension either project-local or global.
+---
 
-### Project-local
+## 🔧 Tools
 
-Put the extension at:
+Six curated tools, all output-bounded by default:
 
-- `.pi/extensions/pi-kota/index.ts`
+| Tool | What It Does |
+|------|-------------|
+| `kota_index` | Index the current repository (with confirmation prompt) |
+| `kota_search` | Code search — `paths`, `compact`, or `snippet` output modes |
+| `kota_deps` | Dependency graph queries (dependents, dependencies, or both) |
+| `kota_usages` | Find all usages of a symbol across the repo |
+| `kota_impact` | Analyze change impact — risk surface, affected files, recommended tests |
+| `kota_task_context` | Summarize deps + impact for a set of files (great for task planning) |
 
-or point pi to this repo file directly:
+## ⌨️ Commands
 
-- `/home/pi/pi-kota/src/index.ts`
+| Command | Description |
+|---------|-------------|
+| `/kota status` | Show process state, repo root, index status, config sources |
+| `/kota index` | Trigger indexing (with confirmation) |
+| `/kota restart` | Reset KotaDB connection (next tool call reconnects) |
+| `/kota reload-config` | Reload config from disk |
 
-### Global
+---
 
-Put it under:
+## 🧹 Context Governance
 
-- `~/.pi/agent/extensions/`
+pi-kota prevents context bloat through two layers:
 
-## Commands
+**1. LLM Context Pruning** (`context` event)
+- Keeps the last N turns intact (default: 2)
+- Older `read`, `bash`, and `kota_search` results get replaced with compact rehydration pointers
+- Adaptive mode tightens pruning when token usage climbs
 
-- `/kota status`
-- `/kota index`
-- `/kota restart`
-- `/kota reload-config`
+**2. Tool Result Truncation** (`tool_result` event)
+- Large `kota_*` outputs are truncated to `maxToolChars`
+- Full output saved to blob cache (`~/.pi/cache/pi-kota/blobs/`)
+- Blob ID included in the truncated result for recovery
 
-## Tools
+---
 
-- `kota_index`
-- `kota_search`
-- `kota_deps`
-- `kota_usages`
-- `kota_impact`
-- `kota_task_context`
+## 📦 Prerequisites
 
-## Config files
+pi-kota spawns KotaDB via Bun:
 
-- Global override: `~/.pi/agent/pi-kota.json`
-- Project override: `.pi/pi-kota.json`
+```bash
+bun --version    # required
+bunx --version   # required
+```
 
-## Development
+---
+
+## 🚀 Install
+
+### As a pi package
+
+Add to `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (global):
+
+```json
+{
+  "packages": ["git:github.com/coctostan/pi-kota"]
+}
+```
+
+### Manual (project-local)
+
+Point pi at the extension entry point in `.pi/settings.json`:
+
+```json
+{
+  "extensions": ["./path/to/pi-kota/src/index.ts"]
+}
+```
+
+### Manual (global)
+
+Symlink or copy the extension to `~/.pi/agent/extensions/`.
+
+---
+
+## ⚙️ Configuration
+
+Config files are layered — global defaults, then project overrides:
+
+| Scope | Path |
+|-------|------|
+| Global | `~/.pi/agent/pi-kota.json` |
+| Project | `.pi/pi-kota.json` |
+
+### Default Config
+
+```json
+{
+  "kota": {
+    "toolset": "core",
+    "autoContext": "off",
+    "confirmIndex": true,
+    "command": "bunx",
+    "args": ["kotadb@next", "--stdio", "--toolset", "core"]
+  },
+  "prune": {
+    "enabled": true,
+    "keepRecentTurns": 2,
+    "maxToolChars": 1200,
+    "adaptive": true
+  },
+  "blobs": {
+    "enabled": true,
+    "dir": "~/.pi/cache/pi-kota/blobs"
+  }
+}
+```
+
+### Key Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `kota.autoContext` | `"off"` | Auto-inject task context: `"off"`, `"onPaths"` (1–3 file paths in prompt), `"always"` |
+| `kota.confirmIndex` | `true` | Prompt before first indexing |
+| `prune.keepRecentTurns` | `2` | Turns to keep intact before pruning |
+| `prune.maxToolChars` | `1200` | Max chars per tool result before truncation |
+| `prune.adaptive` | `true` | Tighten pruning when context usage is high |
+| `blobs.enabled` | `true` | Save full truncated outputs to blob cache |
+
+---
+
+## 🛠️ Development
 
 ```bash
 npm install
-npm test
-npm run typecheck
+npm test          # vitest — 14 files, 20 tests
+npm run typecheck  # tsc --noEmit
 ```
 
-## Design reference
+### Architecture
 
-- `docs/design.md`
+```
+src/
+├── index.ts          # Extension entry — events, commands, tool registration
+├── runtime.ts        # Runtime state + path normalization
+├── config.ts         # Layered config loading (global + project)
+├── prune.ts          # Context pruning logic + adaptive settings
+├── autocontext.ts    # Auto task-context injection rules
+├── blobs.ts          # Blob cache writes
+├── paths.ts          # File path extraction from prompts
+├── text.ts           # Text truncation utilities
+├── toolResult.ts     # Tool result truncation decisions
+└── kota/
+    ├── mcp.ts        # MCP stdio client (KotaDB connection)
+    ├── tools.ts      # Budgeted tool calls + name mapping
+    ├── schemas.ts    # TypeBox schemas for kota_* tool params
+    └── ensure.ts     # Index confirmation flow
+```
+
+### Design Reference
+
+See [`docs/design.md`](docs/design.md) for the full design spec.
+
+---
+
+## 🙏 Attribution
+
+This project is a loose fork of [coctostan/pi-superpowers](https://github.com/coctostan/pi-superpowers), which itself adapts the structured workflow skills from [**Superpowers**](https://github.com/obra/superpowers) by **Jesse Vincent** ([@obra](https://github.com/obra)).
+
+Jesse's work on Superpowers — brainstorming, TDD, systematic debugging, subagent-driven development, and the composable skill architecture — laid the foundation that pi-kota's development workflow was built on top of. If you haven't checked out Superpowers, [go do that](https://github.com/obra/superpowers).
+
+---
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE) for details.
