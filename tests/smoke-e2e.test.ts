@@ -155,3 +155,61 @@ e2eDescribe("e2e smoke (real kotadb)", () => {
     120_000,
   );
 });
+
+describe("e2e smoke (prune + blobs)", () => {
+  it("prunes old tool results on context event", async () => {
+    const api = createMockApi();
+    extension(api.pi as any);
+
+    const cwd = process.cwd();
+    await setupE2eConfig(cwd);
+    const ctx = makeCtx({ cwd });
+
+    await api.fire("session_start", {}, ctx);
+
+    const long = "x".repeat(200);
+    const messages = [
+      { role: "user", content: [{ type: "text", text: "turn1" }] },
+      { role: "toolResult", toolName: "kota_search", content: [{ type: "text", text: long }] },
+      { role: "user", content: [{ type: "text", text: "turn2" }] },
+      { role: "toolResult", toolName: "read", content: [{ type: "text", text: long }] },
+      { role: "user", content: [{ type: "text", text: "turn3" }] },
+    ];
+
+    const [res] = await api.fire("context", { messages }, ctx);
+    const pruned = (res?.messages ?? []) as any[];
+
+    const firstTool = pruned.find((m) => m?.role === "toolResult" && m?.toolName === "kota_search");
+    expect(firstTool?.details?.pruned).toBe(true);
+    expect(String(firstTool?.content?.[0]?.text ?? "")).toContain("(Pruned)");
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
+
+  it("writes a blob + truncates tool_result output", async () => {
+    const api = createMockApi();
+    extension(api.pi as any);
+
+    const cwd = process.cwd();
+    await setupE2eConfig(cwd);
+    const ctx = makeCtx({ cwd });
+    await api.fire("session_start", {}, ctx);
+
+    const big = "y".repeat(500);
+    const [res] = await api.fire(
+      "tool_result",
+      {
+        toolName: "kota_search",
+        content: [{ type: "text", text: big }],
+        details: {},
+      },
+      ctx,
+    );
+
+    expect(String(res?.content?.[0]?.text ?? "")).toContain("Output truncated");
+    expect(res?.details?.truncated).toBe(true);
+    expect(String(res?.details?.blobPath ?? "")).toContain(".tmp/e2e-blobs");
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
+});
