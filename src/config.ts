@@ -29,8 +29,8 @@ export const DEFAULT_CONFIG: PiKotaConfig = {
     toolset: "core",
     autoContext: "off",
     confirmIndex: true,
-    command: "bunx",
-    args: ["kotadb@next", "--stdio", "--toolset", "core"],
+    command: "bun",
+    args: ["x", "kotadb@next", "--stdio", "--toolset", "core"],
   },
   prune: {
     enabled: true,

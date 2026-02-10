@@ -16,6 +16,12 @@ describe("config", () => {
     expect(merged.prune.keepRecentTurns).toBe(DEFAULT_CONFIG.prune.keepRecentTurns);
   });
 
+  it("defaults to bun x (not bunx)", () => {
+    expect(DEFAULT_CONFIG.kota.command).toBe("bun");
+    expect(DEFAULT_CONFIG.kota.args[0]).toBe("x");
+    expect(DEFAULT_CONFIG.kota.args).toContain("kotadb@next");
+  });
+
   it("loads project config from projectRoot when cwd is nested", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "pi-kota-config-"));
     const nested = path.join(root, "a", "b");
