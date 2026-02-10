@@ -63,6 +63,27 @@ describe("config", () => {
     expect(config.blobs.dir).toBe(path.join(root, ".pi/cache/pi-kota/blobs"));
   });
 
+  it("keeps valid global primitive when project override type is invalid", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "pi-kota-config-layered-"));
+    await mkdir(path.join(root, ".pi", "agent"), { recursive: true });
+    await writeFile(
+      path.join(root, ".pi", "agent", "pi-kota.json"),
+      JSON.stringify({ prune: { maxToolChars: 777 } }),
+      "utf8",
+    );
+
+    await mkdir(path.join(root, ".pi"), { recursive: true });
+    await writeFile(
+      path.join(root, ".pi", "pi-kota.json"),
+      JSON.stringify({ prune: { maxToolChars: "invalid" } }),
+      "utf8",
+    );
+
+    const { config } = await loadConfig({ cwd: root, projectRoot: root, homeDir: root });
+
+    expect(config.prune.maxToolChars).toBe(777);
+  });
+
   it("loads project config from projectRoot when cwd is nested", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "pi-kota-config-"));
     const nested = path.join(root, "a", "b");

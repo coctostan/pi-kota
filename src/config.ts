@@ -97,7 +97,7 @@ function sanitizeStringArray(value: unknown, fallback: string[]): string[] {
   return value.every((item) => typeof item === "string") ? value : fallback;
 }
 
-export function sanitizeConfig(config: unknown): PiKotaConfig {
+export function sanitizeConfig(config: unknown, fallback: PiKotaConfig = DEFAULT_CONFIG): PiKotaConfig {
   const root = isObject(config) ? config : {};
   const kota = isObject(root.kota) ? root.kota : {};
   const prune = isObject(root.prune) ? root.prune : {};
@@ -106,32 +106,28 @@ export function sanitizeConfig(config: unknown): PiKotaConfig {
   const autoContext =
     kota.autoContext === "off" || kota.autoContext === "onPaths" || kota.autoContext === "always"
       ? kota.autoContext
-      : DEFAULT_CONFIG.kota.autoContext;
+      : fallback.kota.autoContext;
 
-  const command = sanitizeString(kota.command, DEFAULT_CONFIG.kota.command);
+  const command = sanitizeString(kota.command, fallback.kota.command);
 
   return {
     kota: {
-      toolset: kota.toolset === "core" ? "core" : DEFAULT_CONFIG.kota.toolset,
+      toolset: kota.toolset === "core" ? "core" : fallback.kota.toolset,
       autoContext,
-      confirmIndex: sanitizeBoolean(kota.confirmIndex, DEFAULT_CONFIG.kota.confirmIndex),
-      connectTimeoutMs: sanitizeNumber(
-        kota.connectTimeoutMs,
-        DEFAULT_CONFIG.kota.connectTimeoutMs,
-        1,
-      ),
-      command: command.length > 0 ? command : DEFAULT_CONFIG.kota.command,
-      args: sanitizeStringArray(kota.args, DEFAULT_CONFIG.kota.args),
+      confirmIndex: sanitizeBoolean(kota.confirmIndex, fallback.kota.confirmIndex),
+      connectTimeoutMs: sanitizeNumber(kota.connectTimeoutMs, fallback.kota.connectTimeoutMs, 1),
+      command: command.length > 0 ? command : fallback.kota.command,
+      args: sanitizeStringArray(kota.args, fallback.kota.args),
     },
     prune: {
-      enabled: sanitizeBoolean(prune.enabled, DEFAULT_CONFIG.prune.enabled),
-      keepRecentTurns: sanitizeNumber(prune.keepRecentTurns, DEFAULT_CONFIG.prune.keepRecentTurns, 0),
-      maxToolChars: sanitizeNumber(prune.maxToolChars, DEFAULT_CONFIG.prune.maxToolChars, 1),
-      adaptive: sanitizeBoolean(prune.adaptive, DEFAULT_CONFIG.prune.adaptive),
+      enabled: sanitizeBoolean(prune.enabled, fallback.prune.enabled),
+      keepRecentTurns: sanitizeNumber(prune.keepRecentTurns, fallback.prune.keepRecentTurns, 0),
+      maxToolChars: sanitizeNumber(prune.maxToolChars, fallback.prune.maxToolChars, 1),
+      adaptive: sanitizeBoolean(prune.adaptive, fallback.prune.adaptive),
     },
     blobs: {
-      enabled: sanitizeBoolean(blobs.enabled, DEFAULT_CONFIG.blobs.enabled),
-      dir: sanitizeString(blobs.dir, DEFAULT_CONFIG.blobs.dir),
+      enabled: sanitizeBoolean(blobs.enabled, fallback.blobs.enabled),
+      dir: sanitizeString(blobs.dir, fallback.blobs.dir),
     },
   };
 }
@@ -166,22 +162,22 @@ export async function loadConfig(opts?: {
   const sources: { global?: string; project?: string } = {};
 
   if (globalJson) {
-    config = mergeConfig(config, globalJson as DeepPartial<PiKotaConfig>);
+    const merged = mergeConfig(config, globalJson as DeepPartial<PiKotaConfig>);
+    config = sanitizeConfig(merged, config);
     sources.global = globalPath;
   }
 
   if (projectJson) {
-    config = mergeConfig(config, projectJson as DeepPartial<PiKotaConfig>);
+    const merged = mergeConfig(config, projectJson as DeepPartial<PiKotaConfig>);
+    config = sanitizeConfig(merged, config);
     sources.project = projectPath;
   }
 
-  const sanitized = sanitizeConfig(config);
-
   config = {
-    ...sanitized,
+    ...config,
     blobs: {
-      ...sanitized.blobs,
-      dir: expandTilde(sanitized.blobs.dir, homeDir),
+      ...config.blobs,
+      dir: expandTilde(config.blobs.dir, homeDir),
     },
   };
 
