@@ -9,6 +9,27 @@ export function toTextContent(content: unknown[] | undefined): string {
   return textBlocks.map((b) => b.text).join("\n");
 }
 
+const BUN_NOT_FOUND_MESSAGE = "pi-kota: 'bun' not found on PATH. Install bun (https://bun.sh) or check your PATH.";
+const STDERR_BUFFER_CAP = 16 * 1024;
+
+function isSpawnEnoent(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "ENOENT"
+  );
+}
+
+function hasBunMissingInStderr(stderr: string): boolean {
+  const value = stderr.toLowerCase();
+  return /env:\s*bun/.test(value) || /bun:\s*not found/.test(value) || (value.includes("bun") && value.includes("no such file or directory"));
+}
+
+function toStderrSnippet(stderr: string): string {
+  return stderr.replace(/\s+/g, " ").trim();
+}
+
 export class KotaMcpClient {
   private client: Client | null = null;
 
@@ -28,9 +49,34 @@ export class KotaMcpClient {
       stderr: "pipe",
     });
 
+    let stderrText = "";
+    const onStderrData = (chunk: string | Buffer): void => {
+      stderrText += typeof chunk === "string" ? chunk : chunk.toString("utf8");
+      if (stderrText.length > STDERR_BUFFER_CAP) {
+        stderrText = stderrText.slice(-STDERR_BUFFER_CAP);
+      }
+    };
+
+    const stderrStream = transport.stderr;
+    stderrStream?.on("data", onStderrData);
+
     const client = new Client({ name: "pi-kota", version: "0.0.0" }, { capabilities: {} });
-    await client.connect(transport);
-    this.client = client;
+
+    try {
+      await client.connect(transport);
+      this.client = client;
+    } catch (error) {
+      const stderrSnippet = toStderrSnippet(stderrText);
+      if ((this.stdio.command === "bun" && isSpawnEnoent(error)) || hasBunMissingInStderr(stderrText)) {
+        throw new Error(BUN_NOT_FOUND_MESSAGE);
+      }
+      if (stderrSnippet) {
+        throw new Error(`pi-kota: KotaDB subprocess failed — ${stderrSnippet}`);
+      }
+      throw error;
+    } finally {
+      stderrStream?.removeListener("data", onStderrData);
+    }
   }
 
   async close(): Promise<void> {
