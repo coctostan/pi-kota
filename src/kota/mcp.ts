@@ -11,6 +11,7 @@ export function toTextContent(content: unknown[] | undefined): string {
 
 const BUN_NOT_FOUND_MESSAGE = "pi-kota: 'bun' not found on PATH. Install bun (https://bun.sh) or check your PATH.";
 const STDERR_BUFFER_CAP = 16 * 1024;
+const TIMEOUT_CLOSE_WAIT_CAP_MS = 50;
 
 function isSpawnEnoent(error: unknown): boolean {
   return (
@@ -85,7 +86,11 @@ export class KotaMcpClient {
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutHandle = setTimeout(async () => {
         didTimeout = true;
-        await transport.close().catch(() => {});
+        const closeAttempt = transport.close().catch(() => {});
+        await Promise.race([
+          closeAttempt,
+          new Promise<void>((resolve) => setTimeout(resolve, TIMEOUT_CLOSE_WAIT_CAP_MS)),
+        ]);
         reject(timeoutError);
       }, timeoutMs);
     });

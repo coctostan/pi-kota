@@ -104,9 +104,11 @@ describe("KotaMcpClient.connect error classification", () => {
   });
 
   it("times out if the server never completes MCP connect", async () => {
-    const closeDelayMs = 100;
+    const closeDelayMs = 400;
+    const timeoutMs = 20;
+    const maxExpectedElapsedMs = 180;
     const originalClose = StdioClientTransport.prototype.close;
-    const closeSpy = vi.spyOn(StdioClientTransport.prototype, "close").mockImplementation(async function () {
+    const closeSpy = vi.spyOn(StdioClientTransport.prototype, "close").mockImplementation(async function (this: StdioClientTransport) {
       await new Promise((resolve) => setTimeout(resolve, closeDelayMs));
       return originalClose.call(this);
     });
@@ -115,14 +117,15 @@ describe("KotaMcpClient.connect error classification", () => {
       command: process.execPath,
       args: ["-e", "setInterval(() => {}, 1000)"],
       cwd: process.cwd(),
-      connectTimeoutMs: 20,
+      connectTimeoutMs: timeoutMs,
     });
 
     try {
       const startedAt = Date.now();
       await expect(client.connect()).rejects.toThrow(/failed to start within/i);
-      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(closeDelayMs);
-      expect(closeSpy).toHaveBeenCalled();
+      const elapsedMs = Date.now() - startedAt;
+      expect(elapsedMs).toBeLessThan(maxExpectedElapsedMs);
+      expect(closeSpy).toHaveBeenCalledTimes(1);
     } finally {
       closeSpy.mockRestore();
       await client.close();
