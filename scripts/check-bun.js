@@ -45,18 +45,25 @@ if (bunxPath) {
   }
 
   const bunDir = path.dirname(resolvedPath);
+  const canSuggestSymlink = path.basename(resolvedPath) === "bun" && resolvedPath !== bunxPath;
+  const lines = [
+    "\n⚠ pi-kota: 'bun' is not on PATH\n",
+    `Found bunx at: ${bunxPath}`,
+    `Resolves to: ${resolvedPath}\n`,
+    "Add bun's directory to your PATH:",
+    `  export PATH=\"${bunDir}:$PATH\"\n`,
+  ];
 
-  process.stderr.write(
-    [
-      "\n⚠ pi-kota: 'bun' is not on PATH\n",
-      `Found bunx at: ${bunxPath}`,
-      `Resolves to: ${resolvedPath}\n`,
-      "Add bun's directory to your PATH:",
-      `  export PATH=\"${bunDir}:$PATH\"\n`,
-      "Or create a bun symlink next to bunx:",
-      `  ln -s ${resolvedPath} ${path.join(path.dirname(bunxPath), "bun")}\n`,
-    ].join("\n"),
-  );
+  if (canSuggestSymlink) {
+    lines.push("Or create a bun symlink next to bunx:");
+    lines.push(`  ln -s ${resolvedPath} ${path.join(path.dirname(bunxPath), "bun")}\n`);
+  } else {
+    lines.push("Could not safely infer bun binary from bunx; skipping symlink advice.");
+    lines.push("Install bun and ensure it is on PATH:");
+    lines.push("  curl -fsSL https://bun.sh/install | bash\n");
+  }
+
+  process.stderr.write(lines.join("\n"));
 
   process.exit(0);
 }

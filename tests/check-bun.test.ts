@@ -25,7 +25,7 @@ afterEach(async () => {
 });
 
 describe("postinstall bun check", () => {
-  it("warns when bun is missing but bunx exists via symlink", async () => {
+  it("warns when bun is missing but bunx exists via symlink to bun", async () => {
     const tmp = await makeTempDir();
     const binDir = path.join(tmp, "bin");
     const bunHomeDir = path.join(tmp, "bun-home");
@@ -47,6 +47,29 @@ describe("postinstall bun check", () => {
     expect(output).toContain("pi-kota");
     expect(output).toContain("'bun' is not on PATH");
     expect(output).toContain("export PATH=");
+    expect(output).toContain("ln -s");
+  });
+
+  it("avoids unsafe symlink advice when bunx does not resolve to bun binary", async () => {
+    const tmp = await makeTempDir();
+    const binDir = path.join(tmp, "bin");
+
+    await fs.mkdir(binDir, { recursive: true });
+    await makeExe(binDir, "bunx", "#!/bin/sh\nexit 0\n");
+
+    const result = spawnSync(process.execPath, ["scripts/check-bun.js"], {
+      cwd: process.cwd(),
+      env: { ...process.env, PATH: binDir },
+      encoding: "utf8",
+    });
+
+    const output = `${result.stdout}${result.stderr}`;
+    expect(result.status).toBe(0);
+    expect(output).toContain("pi-kota");
+    expect(output).toContain("'bun' is not on PATH");
+    expect(output).toContain("export PATH=");
+    expect(output).toContain("Install bun");
+    expect(output).not.toContain("ln -s");
   });
 
   it("is silent when bun is on PATH", async () => {

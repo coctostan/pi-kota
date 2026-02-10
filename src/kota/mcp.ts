@@ -24,6 +24,7 @@ function isSpawnEnoent(error: unknown): boolean {
 const BUN_TOKEN_PATTERN = /(^|[^a-z0-9_])bun([^a-z0-9_]|$)/;
 const BUN_MISSING_STDERR_PATTERNS = [
   /(?:^|\s)(?:\/usr\/bin\/)?env:\s*['"`‘’]?bun['"`‘’]?:\s*no such file or directory(?:\s|$)/,
+  /(?:^|\s)['"`‘’]?bun['"`‘’]?:\s*no such file or directory(?:\s|$)/,
   /(?:^|\s)['"`‘’]?bun['"`‘’]?:\s*not found(?:\s|$)/,
 ];
 

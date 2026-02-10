@@ -47,6 +47,23 @@ describe("KotaMcpClient.connect error classification", () => {
     }
   });
 
+  it("reports bun not found on PATH when stderr says bun missing without env prefix", async () => {
+    const client = new KotaMcpClient({
+      command: process.execPath,
+      args: [
+        "-e",
+        "process.stderr.write('bun: No such file or directory\\n'); process.exit(1);",
+      ],
+      cwd: process.cwd(),
+    });
+
+    try {
+      await expect(client.connect()).rejects.toThrow(/bun.*not found on PATH/i);
+    } finally {
+      await client.close();
+    }
+  });
+
   it("does not classify non-bun missing-file stderr as bun-not-found", async () => {
     const client = new KotaMcpClient({
       command: process.execPath,
