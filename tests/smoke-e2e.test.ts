@@ -6,16 +6,16 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import extension from "../src/index.js";
 import { createMockApi } from "./helpers/mock-api.js";
 
-const HAS_BUNX = (() => {
+const HAS_BUN = (() => {
   try {
-    execFileSync("bunx", ["--version"], { stdio: "ignore" });
+    execFileSync("bun", ["--version"], { stdio: "ignore" });
     return true;
   } catch {
     return false;
   }
 })();
 
-const e2eDescribe = HAS_BUNX ? describe : describe.skip;
+const e2eDescribe = HAS_BUN ? describe : describe.skip;
 
 const repoRoot = process.cwd();
 const piConfigPath = path.join(repoRoot, ".pi", "pi-kota.json");
