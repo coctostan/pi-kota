@@ -131,4 +131,16 @@ describe("KotaMcpClient.connect error classification", () => {
       await client.close();
     }
   });
+
+  it("close() is idempotent", async () => {
+    const client = new KotaMcpClient({
+      command: process.execPath,
+      args: ["-e", "process.exit(0)"],
+      cwd: process.cwd(),
+      connectTimeoutMs: 50,
+    });
+
+    await client.close();
+    await client.close();
+  });
 });
