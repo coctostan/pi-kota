@@ -1,3 +1,5 @@
+![pi-kota banner](docs/assets/banners/21x6/banner-01-21x6.jpg)
+
 # pi-kota
 
 KotaDB thin wrapper + context pruning for **pi** (TypeScript/JavaScript repos).
