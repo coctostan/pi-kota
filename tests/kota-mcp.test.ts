@@ -101,4 +101,19 @@ describe("KotaMcpClient.connect error classification", () => {
       await client.close();
     }
   });
+
+  it("times out if the server never completes MCP connect", async () => {
+    const client = new KotaMcpClient({
+      command: process.execPath,
+      args: ["-e", "setInterval(() => {}, 1000)"],
+      cwd: process.cwd(),
+      connectTimeoutMs: 50,
+    });
+
+    try {
+      await expect(client.connect()).rejects.toThrow(/failed to start within/i);
+    } finally {
+      await client.close();
+    }
+  });
 });

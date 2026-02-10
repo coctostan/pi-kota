@@ -41,8 +41,11 @@ function toStderrSnippet(stderr: string): string {
 
 export class KotaMcpClient {
   private client: Client | null = null;
+  private readonly connectTimeoutMs: number;
 
-  constructor(private readonly stdio: { command: string; args: string[]; cwd: string }) {}
+  constructor(private readonly stdio: { command: string; args: string[]; cwd: string; connectTimeoutMs?: number }) {
+    this.connectTimeoutMs = stdio.connectTimeoutMs ?? 10000;
+  }
 
   isConnected(): boolean {
     return this.client !== null;
@@ -71,10 +74,30 @@ export class KotaMcpClient {
 
     const client = new Client({ name: "pi-kota", version: "0.0.0" }, { capabilities: {} });
 
+    const timeoutMs = this.connectTimeoutMs;
+    const timeoutErrorMessage =
+      `pi-kota: KotaDB failed to start within ${timeoutMs}ms. ` +
+      "Check that 'bun' is installed and working. Run /kota restart to retry.";
+
+    let didTimeout = false;
+    const timeoutError = new Error(timeoutErrorMessage);
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        didTimeout = true;
+        void transport.close().catch(() => {});
+        reject(timeoutError);
+      }, timeoutMs);
+    });
+
     try {
-      await client.connect(transport);
+      await Promise.race([client.connect(transport), timeoutPromise]);
       this.client = client;
     } catch (error) {
+      if (didTimeout || (error instanceof Error && error.message === timeoutErrorMessage)) {
+        throw timeoutError;
+      }
+
       const stderrSnippet = toStderrSnippet(stderrText);
       if ((this.stdio.command === "bun" && isSpawnEnoent(error)) || hasBunMissingInStderr(stderrText)) {
         throw new Error(BUN_NOT_FOUND_MESSAGE);
@@ -84,6 +107,9 @@ export class KotaMcpClient {
       }
       throw error;
     } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
       stderrStream?.removeListener("data", onStderrData);
     }
   }

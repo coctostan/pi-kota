@@ -60,6 +60,7 @@ export default function (pi: ExtensionAPI) {
       command: state.config.kota.command,
       args: state.config.kota.args,
       cwd: state.repoRoot,
+      connectTimeoutMs: state.config.kota.connectTimeoutMs,
     });
 
     try {
