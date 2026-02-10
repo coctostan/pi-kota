@@ -37,4 +37,42 @@ describe("callBudgeted", () => {
     expect(onTransportErrorCalled).toBe(true);
     expect(result.ok).toBe(false);
   });
+
+  it("falls back to JSON when no text blocks in MCP content", async () => {
+    const raw = {
+      content: [{ type: "image", uri: "file://diagram.png" }],
+      meta: { source: "mcp" },
+    };
+
+    const result = await callBudgeted({
+      toolName: "search",
+      args: {},
+      maxChars: 5000,
+      listTools: async () => ["search"],
+      callTool: async () => ({
+        content: [{ type: "image", uri: "file://diagram.png" }],
+        raw,
+      }),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.text).toBe(JSON.stringify(raw, null, 2));
+  });
+
+  it("truncates output to maxChars", async () => {
+    const result = await callBudgeted({
+      toolName: "search",
+      args: {},
+      maxChars: 5,
+      listTools: async () => ["search"],
+      callTool: async () => ({
+        content: [{ type: "text", text: "abcdefgh" }],
+        raw: { content: [{ type: "text", text: "abcdefgh" }] },
+      }),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.text).toHaveLength(5);
+    expect(result.text).toBe("abcd…");
+  });
 });
