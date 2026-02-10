@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import extension from "../src/index.js";
 import { createMockApi } from "./helpers/mock-api.js";
 
@@ -52,6 +52,35 @@ async function setupE2eConfig(repoRoot = process.cwd()) {
     "utf8",
   );
 }
+
+async function rmSafe(p: string) {
+  try {
+    await fs.rm(p, { recursive: true, force: true });
+  } catch {
+    // ignore
+  }
+}
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+afterAll(async () => {
+  const repoRoot = process.cwd();
+  const piDir = path.join(repoRoot, ".pi");
+  const tmpDir = path.join(repoRoot, ".tmp");
+
+  await rmSafe(piDir);
+  await rmSafe(tmpDir);
+
+  expect(await pathExists(piDir)).toBe(false);
+  expect(await pathExists(tmpDir)).toBe(false);
+});
 
 describe("e2e smoke (wiring)", () => {
   it("registers all pi-kota tools and the /kota command", async () => {
