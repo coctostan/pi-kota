@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { KotaMcpClient, toTextContent } from "../src/kota/mcp.js";
 
 describe("toTextContent", () => {
@@ -103,16 +104,27 @@ describe("KotaMcpClient.connect error classification", () => {
   });
 
   it("times out if the server never completes MCP connect", async () => {
+    const closeDelayMs = 100;
+    const originalClose = StdioClientTransport.prototype.close;
+    const closeSpy = vi.spyOn(StdioClientTransport.prototype, "close").mockImplementation(async function () {
+      await new Promise((resolve) => setTimeout(resolve, closeDelayMs));
+      return originalClose.call(this);
+    });
+
     const client = new KotaMcpClient({
       command: process.execPath,
       args: ["-e", "setInterval(() => {}, 1000)"],
       cwd: process.cwd(),
-      connectTimeoutMs: 50,
+      connectTimeoutMs: 20,
     });
 
     try {
+      const startedAt = Date.now();
       await expect(client.connect()).rejects.toThrow(/failed to start within/i);
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(closeDelayMs);
+      expect(closeSpy).toHaveBeenCalled();
     } finally {
+      closeSpy.mockRestore();
       await client.close();
     }
   });

@@ -83,9 +83,9 @@ export class KotaMcpClient {
     const timeoutError = new Error(timeoutErrorMessage);
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutHandle = setTimeout(() => {
+      timeoutHandle = setTimeout(async () => {
         didTimeout = true;
-        void transport.close().catch(() => {});
+        await transport.close().catch(() => {});
         reject(timeoutError);
       }, timeoutMs);
     });
