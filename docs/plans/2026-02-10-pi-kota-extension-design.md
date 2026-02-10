@@ -1,6 +1,8 @@
 # pi-kota Extension Implementation Plan
 
 > **REQUIRED SUB-SKILL:** Use the executing-plans skill to implement this plan task-by-task.
+>
+> **Historical note (current behavior differs):** This plan was authored before Bun PATH hardening. Current runtime defaults are `command: "bun"` with args beginning `"x"` (not `bunx`). See `README.md` and `src/config.ts` for current source of truth.
 
 **Goal:** Implement `pi-kota` as a pi extension that (1) exposes a small, bounded-output `kota_*` toolset backed by a KotaDB MCP server over stdio, and (2) prevents long-session bloat via context pruning and `kota_*` tool-result truncation + blob caching.
 

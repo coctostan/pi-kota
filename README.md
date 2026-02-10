@@ -76,6 +76,16 @@ pi-kota spawns KotaDB via Bun:
 bun --version    # required
 ```
 
+`npm install` runs a non-blocking Bun availability check (`scripts/check-bun.js`) and prints PATH guidance if Bun is missing.
+
+### Bun PATH troubleshooting
+
+If startup fails with:
+
+`pi-kota: 'bun' not found on PATH`
+
+Install Bun and ensure your shell PATH includes Bun's bin directory (usually `~/.bun/bin`).
+
 ---
 
 ## 🚀 Install
@@ -156,8 +166,9 @@ Config files are layered — global defaults, then project overrides:
 
 ```bash
 npm install
-npm test          # vitest — 14 files, 20 tests
-npm run typecheck  # tsc --noEmit
+npm test
+npm run test:e2e
+npm run typecheck
 ```
 
 ### Architecture
@@ -188,9 +199,7 @@ See [`docs/design.md`](docs/design.md) for the full design spec.
 
 ## 🙏 Attribution
 
-This project is a loose fork of [coctostan/pi-superpowers](https://github.com/coctostan/pi-superpowers), which itself adapts the structured workflow skills from [**Superpowers**](https://github.com/obra/superpowers) by **Jesse Vincent** ([@obra](https://github.com/obra)).
-
-Jesse's work on Superpowers — brainstorming, TDD, systematic debugging, subagent-driven development, and the composable skill architecture — laid the foundation that pi-kota's development workflow was built on top of. If you haven't checked out Superpowers, [go do that](https://github.com/obra/superpowers).
+pi-kota is built on top of [KotaDB](https://github.com/nicobailon/kotadb), created by **Nico Bailon**. Big thanks to Nico for designing and maintaining the code intelligence engine that powers this extension.
 
 ---
 

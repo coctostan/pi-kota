@@ -8,7 +8,7 @@
 
 **Goal:** Prove the extension works in a live pi session against a real KotaDB instance.
 
-- [ ] Verify `bun`/`bunx` available (install if needed)
+- [ ] Verify `bun` available (install if needed)
 - [ ] Launch pi with `-e ./src/index.ts`, confirm status bar shows `kota: stopped`
 - [ ] `/kota status` — prints config sources, repo root, connection state
 - [ ] `/kota index` — confirmation dialog fires, indexing completes
