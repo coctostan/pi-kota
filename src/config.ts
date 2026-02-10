@@ -90,13 +90,14 @@ async function readJsonIfExists(filePath: string): Promise<Record<string, unknow
 
 export async function loadConfig(opts?: {
   cwd?: string;
+  projectRoot?: string;
   homeDir?: string;
 }): Promise<{ config: PiKotaConfig; sources: { global?: string; project?: string } }> {
   const cwd = opts?.cwd ?? process.cwd();
   const homeDir = opts?.homeDir ?? os.homedir();
 
   const globalPath = path.join(homeDir, ".pi/agent/pi-kota.json");
-  const projectPath = path.join(cwd, ".pi/pi-kota.json");
+  const projectPath = path.join(opts?.projectRoot ?? cwd, ".pi/pi-kota.json");
 
   const globalJson = await readJsonIfExists(globalPath);
   const projectJson = await readJsonIfExists(projectPath);

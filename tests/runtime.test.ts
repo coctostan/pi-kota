@@ -5,6 +5,6 @@ describe("runtime", () => {
   it("starts disconnected and unindexed", () => {
     const s = createInitialRuntimeState();
     expect(s.kotaStatus).toBe("stopped");
-    expect(s.indexed).toBe(false);
+    expect(s.indexedRepoRoot).toBe(null);
   });
 });

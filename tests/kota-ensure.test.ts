@@ -23,4 +23,16 @@ describe("ensureIndexed", () => {
     expect(index).toHaveBeenCalledTimes(1);
     expect(state.indexed).toBe(true);
   });
+
+  it("throws when confirmation is required and declined", async () => {
+    const state = { indexed: false };
+    await expect(
+      ensureIndexed({
+        state,
+        confirmIndex: true,
+        confirm: vi.fn(async () => false),
+        index: vi.fn(async () => {}),
+      }),
+    ).rejects.toThrow("Indexing cancelled by user");
+  });
 });

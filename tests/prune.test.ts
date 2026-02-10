@@ -22,4 +22,15 @@ describe("pruneContextMessages", () => {
 
     expect((pruned[1] as any).content[0].text).toContain("(Pruned)");
   });
+
+  it("with keepRecentTurns=0, prunes all eligible tool results", () => {
+    const messages = [user("A"), tool("read", "x".repeat(5000)), user("B")];
+    const pruned = pruneContextMessages(messages as any, {
+      keepRecentTurns: 0,
+      maxToolChars: 100,
+      pruneToolNames: new Set(["read"]),
+    });
+
+    expect((pruned[1] as any).content[0].text).toContain("(Pruned)");
+  });
 });

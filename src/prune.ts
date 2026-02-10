@@ -35,7 +35,6 @@ export function pruneContextMessages(
   },
 ): unknown[] {
   const keepRecentTurns = Math.max(0, opts.keepRecentTurns);
-  if (keepRecentTurns === 0) return messages;
 
   const userIndexes: number[] = [];
   for (let i = 0; i < messages.length; i++) {
@@ -44,7 +43,12 @@ export function pruneContextMessages(
     }
   }
 
-  const cutoff = userIndexes.length > keepRecentTurns ? userIndexes[userIndexes.length - keepRecentTurns] : 0;
+  const cutoff =
+    keepRecentTurns === 0
+      ? messages.length
+      : userIndexes.length > keepRecentTurns
+        ? userIndexes[userIndexes.length - keepRecentTurns]
+        : 0;
 
   return messages.map((m, idx) => {
     if (idx >= cutoff) return m;

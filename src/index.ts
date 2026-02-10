@@ -36,7 +36,7 @@ export default function (pi: ExtensionAPI) {
   const state = createInitialRuntimeState();
 
   async function refreshConfig(ctx: { cwd: string }) {
-    const res = await loadConfig({ cwd: ctx.cwd });
+    const res = await loadConfig({ cwd: ctx.cwd, projectRoot: state.repoRoot ?? ctx.cwd });
     state.config = res.config;
     state.configSources = res.sources;
   }
@@ -116,9 +116,30 @@ export default function (pi: ExtensionAPI) {
     return res;
   }
 
+  async function ensureRepoIndexed(ctx: { cwd: string; hasUI?: boolean; ui?: any }): Promise<void> {
+    if (!state.config) throw new Error("pi-kota: config not loaded");
+    const targetPath = state.repoRoot ?? ctx.cwd;
+
+    await ensureIndexed({
+      state: {
+        get indexed() {
+          return state.indexedRepoRoot === targetPath;
+        },
+        set indexed(v: boolean) {
+          state.indexedRepoRoot = v ? targetPath : null;
+        },
+      },
+      confirmIndex: state.config.kota.confirmIndex,
+      confirm: (t, m) => (ctx.hasUI ? ctx.ui.confirm(t, m) : Promise.resolve(true)),
+      index: async () => {
+        await callKotaToolStrict(ctx, "index", { path: targetPath });
+      },
+    });
+  }
+
   pi.on("session_start", async (_event, ctx: any) => {
-    await refreshConfig(ctx);
     state.repoRoot = await detectRepoRoot(pi, ctx.cwd);
+    await refreshConfig(ctx);
 
     if (ctx.hasUI) {
       ctx.ui.setStatus("pi-kota", `kota: stopped | repo: ${state.repoRoot}`);
@@ -134,6 +155,7 @@ export default function (pi: ExtensionAPI) {
 
     try {
       const res = await callKotaTool(ctx, "task_context", { files: paths });
+      if (!res.ok) return;
       return {
         message: {
           customType: "pi-kota:autoContext",
@@ -217,7 +239,7 @@ export default function (pi: ExtensionAPI) {
             "pi-kota status",
             `kota: ${state.kotaStatus}`,
             `repo: ${state.repoRoot ?? "(unknown)"}`,
-            `indexed: ${state.indexed ? "yes" : "no"}`,
+            `indexed: ${state.indexedRepoRoot === state.repoRoot && state.repoRoot ? "yes" : "no"}`,
             `config: global=${src?.global ?? "(none)"}, project=${src?.project ?? "(none)"}`,
             tools.length ? `mcp tools: ${tools.join(", ")}` : "mcp tools: (unknown/unavailable)",
             state.lastError ? `lastError: ${state.lastError}` : "",
@@ -239,7 +261,7 @@ export default function (pi: ExtensionAPI) {
         await state.mcp?.close().catch(() => {});
         state.mcp = null;
         state.kotaStatus = "stopped";
-        state.indexed = false;
+        state.indexedRepoRoot = null;
         ctx.ui.notify("KotaDB connection reset. Next kota_* call will reconnect.", "info");
         return;
       }
@@ -248,13 +270,21 @@ export default function (pi: ExtensionAPI) {
         if (!state.config) throw new Error("pi-kota: config not loaded");
         await ensureConnected(ctx);
 
+        const targetPath = state.repoRoot ?? ctx.cwd;
         let output = "";
         await ensureIndexed({
-          state,
+          state: {
+            get indexed() {
+              return state.indexedRepoRoot === targetPath;
+            },
+            set indexed(v: boolean) {
+              state.indexedRepoRoot = v ? targetPath : null;
+            },
+          },
           confirmIndex: state.config.kota.confirmIndex,
           confirm: (t, m) => ctx.ui.confirm(t, m),
           index: async () => {
-            const res = await callKotaToolStrict(ctx, "index", { path: state.repoRoot ?? ctx.cwd });
+            const res = await callKotaToolStrict(ctx, "index", { path: targetPath });
             output = res.text;
           },
         });
@@ -280,7 +310,7 @@ export default function (pi: ExtensionAPI) {
 
       const p = (params as { path?: string }).path ?? state.repoRoot ?? ctx.cwd;
       const res = await callKotaToolStrict(ctx, "index", { path: p });
-      state.indexed = true;
+      state.indexedRepoRoot = p;
 
       return { content: [{ type: "text", text: res.text }], details: { indexed: true } };
     },
@@ -296,17 +326,10 @@ export default function (pi: ExtensionAPI) {
       if (!state.config) throw new Error("pi-kota: config not loaded");
 
       await ensureConnected(ctx);
-      await ensureIndexed({
-        state,
-        confirmIndex: state.config.kota.confirmIndex,
-        confirm: (t, m) => (ctx.hasUI ? ctx.ui.confirm(t, m) : Promise.resolve(false)),
-        index: async () => {
-          await callKotaToolStrict(ctx, "index", { path: state.repoRoot ?? ctx.cwd });
-        },
-      });
+      await ensureRepoIndexed(ctx);
 
-      const res = await callKotaTool(ctx, "search", params);
-      return { content: [{ type: "text", text: res.text }], details: { truncatedToChars: 5000, ok: res.ok } };
+      const res = await callKotaToolStrict(ctx, "search", params);
+      return { content: [{ type: "text", text: res.text }], details: { truncatedToChars: 5000, ok: true } };
     },
   });
 
@@ -320,17 +343,10 @@ export default function (pi: ExtensionAPI) {
       if (!state.config) throw new Error("pi-kota: config not loaded");
 
       await ensureConnected(ctx);
-      await ensureIndexed({
-        state,
-        confirmIndex: state.config.kota.confirmIndex,
-        confirm: (t, m) => (ctx.hasUI ? ctx.ui.confirm(t, m) : Promise.resolve(false)),
-        index: async () => {
-          await callKotaToolStrict(ctx, "index", { path: state.repoRoot ?? ctx.cwd });
-        },
-      });
+      await ensureRepoIndexed(ctx);
 
-      const res = await callKotaTool(ctx, "deps", params);
-      return { content: [{ type: "text", text: res.text }], details: { truncatedToChars: 5000, ok: res.ok } };
+      const res = await callKotaToolStrict(ctx, "deps", params);
+      return { content: [{ type: "text", text: res.text }], details: { truncatedToChars: 5000, ok: true } };
     },
   });
 
@@ -344,17 +360,10 @@ export default function (pi: ExtensionAPI) {
       if (!state.config) throw new Error("pi-kota: config not loaded");
 
       await ensureConnected(ctx);
-      await ensureIndexed({
-        state,
-        confirmIndex: state.config.kota.confirmIndex,
-        confirm: (t, m) => (ctx.hasUI ? ctx.ui.confirm(t, m) : Promise.resolve(false)),
-        index: async () => {
-          await callKotaToolStrict(ctx, "index", { path: state.repoRoot ?? ctx.cwd });
-        },
-      });
+      await ensureRepoIndexed(ctx);
 
-      const res = await callKotaTool(ctx, "usages", params);
-      return { content: [{ type: "text", text: res.text }], details: { truncatedToChars: 5000, ok: res.ok } };
+      const res = await callKotaToolStrict(ctx, "usages", params);
+      return { content: [{ type: "text", text: res.text }], details: { truncatedToChars: 5000, ok: true } };
     },
   });
 
@@ -368,19 +377,12 @@ export default function (pi: ExtensionAPI) {
       if (!state.config) throw new Error("pi-kota: config not loaded");
 
       await ensureConnected(ctx);
-      await ensureIndexed({
-        state,
-        confirmIndex: state.config.kota.confirmIndex,
-        confirm: (t, m) => (ctx.hasUI ? ctx.ui.confirm(t, m) : Promise.resolve(false)),
-        index: async () => {
-          await callKotaToolStrict(ctx, "index", { path: state.repoRoot ?? ctx.cwd });
-        },
-      });
+      await ensureRepoIndexed(ctx);
 
-      const res = await callKotaTool(ctx, "impact", params);
+      const res = await callKotaToolStrict(ctx, "impact", params);
       return {
         content: [{ type: "text", text: res.text }],
-        details: { truncatedToChars: 5000, pinned: true, ok: res.ok },
+        details: { truncatedToChars: 5000, pinned: true, ok: true },
       };
     },
   });
@@ -395,17 +397,10 @@ export default function (pi: ExtensionAPI) {
       if (!state.config) throw new Error("pi-kota: config not loaded");
 
       await ensureConnected(ctx);
-      await ensureIndexed({
-        state,
-        confirmIndex: state.config.kota.confirmIndex,
-        confirm: (t, m) => (ctx.hasUI ? ctx.ui.confirm(t, m) : Promise.resolve(false)),
-        index: async () => {
-          await callKotaToolStrict(ctx, "index", { path: state.repoRoot ?? ctx.cwd });
-        },
-      });
+      await ensureRepoIndexed(ctx);
 
-      const res = await callKotaTool(ctx, "task_context", params);
-      return { content: [{ type: "text", text: res.text }], details: { truncatedToChars: 5000, ok: res.ok } };
+      const res = await callKotaToolStrict(ctx, "task_context", params);
+      return { content: [{ type: "text", text: res.text }], details: { truncatedToChars: 5000, ok: true } };
     },
   });
 }

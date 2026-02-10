@@ -6,7 +6,7 @@ export interface RuntimeState {
   configSources: { global?: string; project?: string } | null;
 
   repoRoot: string | null;
-  indexed: boolean;
+  indexedRepoRoot: string | null;
 
   kotaStatus: "stopped" | "starting" | "running" | "error";
   lastError: string | null;
@@ -20,7 +20,7 @@ export function createInitialRuntimeState(): RuntimeState {
     configSources: null,
 
     repoRoot: null,
-    indexed: false,
+    indexedRepoRoot: null,
 
     kotaStatus: "stopped",
     lastError: null,
