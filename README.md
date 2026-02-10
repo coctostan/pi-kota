@@ -74,7 +74,6 @@ pi-kota spawns KotaDB via Bun:
 
 ```bash
 bun --version    # required
-bunx --version   # required
 ```
 
 ---
@@ -124,8 +123,8 @@ Config files are layered — global defaults, then project overrides:
     "toolset": "core",
     "autoContext": "off",
     "confirmIndex": true,
-    "command": "bunx",
-    "args": ["kotadb@next", "--stdio", "--toolset", "core"]
+    "command": "bun",
+    "args": ["x", "kotadb@next", "--stdio", "--toolset", "core"]
   },
   "prune": {
     "enabled": true,

@@ -7,4 +7,10 @@ describe("formatToolError", () => {
     expect(msg).toContain("Available MCP tools");
     expect(msg).toContain("search");
   });
+
+  it("uses bun-only installation hint", () => {
+    const msg = formatToolError("search", ["search"], new Error("boom"));
+    expect(msg).toContain("ensure bun is installed");
+    expect(msg).not.toContain("bunx");
+  });
 });

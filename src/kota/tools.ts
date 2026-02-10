@@ -30,7 +30,7 @@ export function formatToolError(toolName: string, availableTools: string[], err:
     `kota: failed to call MCP tool \"${toolName}\"`,
     `error: ${message}`,
     `Available MCP tools: ${list}`,
-    "Hint: ensure bun/bunx is installed and KotaDB starts with --toolset core.",
+    "Hint: ensure bun is installed and KotaDB starts with --toolset core.",
   ].join("\n");
 }
 
