@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "vitest run -c vitest.config.e2e.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "node scripts/check-bun.js"
   },
   "dependencies": {
     "@mariozechner/pi-coding-agent": "^0.52.9",

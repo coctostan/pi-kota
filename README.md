@@ -74,8 +74,17 @@ pi-kota spawns KotaDB via Bun:
 
 ```bash
 bun --version    # required
-bunx --version   # required
 ```
+
+`npm install` runs a non-blocking Bun availability check (`scripts/check-bun.js`) and prints PATH guidance if Bun is missing.
+
+### Bun PATH troubleshooting
+
+If startup fails with:
+
+`pi-kota: 'bun' not found on PATH`
+
+Install Bun and ensure your shell PATH includes Bun's bin directory (usually `~/.bun/bin`).
 
 ---
 
@@ -124,8 +133,9 @@ Config files are layered — global defaults, then project overrides:
     "toolset": "core",
     "autoContext": "off",
     "confirmIndex": true,
-    "command": "bunx",
-    "args": ["kotadb@next", "--stdio", "--toolset", "core"]
+    "connectTimeoutMs": 10000,
+    "command": "bun",
+    "args": ["x", "kotadb@next", "--stdio", "--toolset", "core"]
   },
   "prune": {
     "enabled": true,
@@ -146,6 +156,7 @@ Config files are layered — global defaults, then project overrides:
 |--------|---------|-------------|
 | `kota.autoContext` | `"off"` | Auto-inject task context: `"off"`, `"onPaths"` (1–3 file paths in prompt), `"always"` |
 | `kota.confirmIndex` | `true` | Prompt before first indexing |
+| `kota.connectTimeoutMs` | `10000` | Connection timeout in milliseconds for Kota MCP startup |
 | `prune.keepRecentTurns` | `2` | Turns to keep intact before pruning |
 | `prune.maxToolChars` | `1200` | Max chars per tool result before truncation |
 | `prune.adaptive` | `true` | Tighten pruning when context usage is high |
@@ -157,8 +168,9 @@ Config files are layered — global defaults, then project overrides:
 
 ```bash
 npm install
-npm test          # vitest — 14 files, 20 tests
-npm run typecheck  # tsc --noEmit
+npm test
+npm run test:e2e
+npm run typecheck
 ```
 
 ### Architecture
@@ -189,9 +201,7 @@ See [`docs/design.md`](docs/design.md) for the full design spec.
 
 ## 🙏 Attribution
 
-This project is a loose fork of [coctostan/pi-superpowers](https://github.com/coctostan/pi-superpowers), which itself adapts the structured workflow skills from [**Superpowers**](https://github.com/obra/superpowers) by **Jesse Vincent** ([@obra](https://github.com/obra)).
-
-Jesse's work on Superpowers — brainstorming, TDD, systematic debugging, subagent-driven development, and the composable skill architecture — laid the foundation that pi-kota's development workflow was built on top of. If you haven't checked out Superpowers, [go do that](https://github.com/obra/superpowers).
+pi-kota is built on top of [KotaDB](https://github.com/nicobailon/kotadb), created by **Nico Bailon**. Big thanks to Nico for designing and maintaining the code intelligence engine that powers this extension.
 
 ---
 

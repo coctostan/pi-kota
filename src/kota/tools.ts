@@ -30,8 +30,24 @@ export function formatToolError(toolName: string, availableTools: string[], err:
     `kota: failed to call MCP tool \"${toolName}\"`,
     `error: ${message}`,
     `Available MCP tools: ${list}`,
-    "Hint: ensure bun/bunx is installed and KotaDB starts with --toolset core.",
+    "Hint: ensure bun is installed and KotaDB starts with --toolset core.",
   ].join("\n");
+}
+
+function isTransportError(e: unknown): boolean {
+  const code =
+    typeof e === "object" && e !== null && "code" in e
+      ? (e as { code?: unknown }).code
+      : undefined;
+  const msg = e instanceof Error ? e.message : String(e);
+
+  return (
+    code === "EPIPE" ||
+    code === "ECONNRESET" ||
+    code === "ERR_STREAM_DESTROYED" ||
+    /not connected/i.test(msg) ||
+    /transport/i.test(msg)
+  );
 }
 
 export async function callBudgeted(opts: {
@@ -40,6 +56,7 @@ export async function callBudgeted(opts: {
   maxChars: number;
   listTools: () => Promise<string[]>;
   callTool: (name: string, args: unknown) => Promise<{ content: unknown[]; raw: unknown }>;
+  onTransportError?: (err: unknown) => void;
 }): Promise<{ text: string; raw: unknown; ok: boolean }> {
   const mcpToolName = resolveMcpToolName(opts.toolName);
   const mcpArgs = prepareMcpArgs(opts.toolName, opts.args);
@@ -54,7 +71,15 @@ export async function callBudgeted(opts: {
       ok: true,
     };
   } catch (e) {
-    const available = await opts.listTools().catch(() => [] as string[]);
+    const transportError = isTransportError(e);
+    if (transportError) {
+      opts.onTransportError?.(e);
+    }
+
+    const available = transportError
+      ? ([] as string[])
+      : await opts.listTools().catch(() => [] as string[]);
+
     return {
       text: truncateChars(formatToolError(opts.toolName, available, e), opts.maxChars),
       raw: null,

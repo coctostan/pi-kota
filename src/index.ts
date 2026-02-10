@@ -60,6 +60,7 @@ export default function (pi: ExtensionAPI) {
       command: state.config.kota.command,
       args: state.config.kota.args,
       cwd: state.repoRoot,
+      connectTimeoutMs: state.config.kota.connectTimeoutMs,
     });
 
     try {
@@ -107,6 +108,7 @@ export default function (pi: ExtensionAPI) {
       maxChars: 5000,
       listTools: () => state.mcp!.listTools(),
       callTool: (n, a) => state.mcp!.callTool(n, a),
+      onTransportError: () => state.mcp?.disconnect(),
     });
   }
 

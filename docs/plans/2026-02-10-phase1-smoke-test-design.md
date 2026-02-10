@@ -1,6 +1,8 @@
 # Phase 1 — End-to-End Smoke Tests Implementation Plan
 
 > **REQUIRED SUB-SKILL:** Use the executing-plans skill to implement this plan task-by-task.
+>
+> **Historical note (current behavior differs):** This plan references `bunx` availability checks. The current test/runtime path checks `bun` and uses `bun x ...`. Keep this file as execution history; use `README.md` + current tests as source of truth.
 
 **Goal:** Add a deterministic, automated “Phase 1” smoke test suite that exercises the pi-kota extension wiring against a real KotaDB subprocess (no LLM required).
 

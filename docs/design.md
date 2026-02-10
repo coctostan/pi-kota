@@ -10,6 +10,8 @@ owners:
   - you
 ---
 
+> **Note:** This is a draft design document (includes some aspirational UX/commands). For current shipped behavior, use `README.md` and `src/*` as source of truth.
+
 # pi-kota: KotaDB thin wrapper + context pruning (pi extension)
 
 ## 1. Summary
@@ -49,7 +51,7 @@ In large TS/JS repos, agent sessions degrade because:
 1. **Indexing requires confirmation** (first indexing can be slow / surprising).
 2. **Auto task-context injection**: implement but ship as **opt-in**, with a recommended “smart” mode.
 3. **Prune in LLM context AND truncate stored tool outputs**; preserve full data via a blob cache to avoid losing expandability/auditability.
-4. **KotaDB runtime**: require **Bun** and spawn KotaDB via **`bunx kotadb@next --stdio --toolset core`** (simple, stays aligned with KotaDB development).
+4. **KotaDB runtime**: require **Bun** and spawn KotaDB via **`bun x kotadb@next --stdio --toolset core`** (avoids `bunx` shebang/PATH edge cases while staying aligned with KotaDB development).
 5. **MCP schemas in context are a non-starter**: pi-kota exposes a small curated toolset; MCP SDK is used internally only.
 
 ## 6. User experience
@@ -192,7 +194,7 @@ When truncating tool outputs, we still want:
 
 ## 10. Architecture
 ### 10.1 KotaDB subprocess
-- Spawn (hard requirement): `bunx kotadb@next --stdio --toolset core`
+- Spawn (hard requirement): `bun x kotadb@next --stdio --toolset core`
 - Ensure logs go to stderr; stdout reserved for JSON-RPC.
 - Restart on crash with exponential backoff.
 - Start lazily on first `kota_*` call or `/kota status`.
@@ -224,8 +226,8 @@ Initial config (global defaults, overridable per project):
     "toolset": "core",
     "autoContext": "off",
     "confirmIndex": true,
-    "command": "bunx",
-    "args": ["kotadb@next", "--stdio", "--toolset", "core"]
+    "command": "bun",
+    "args": ["x", "kotadb@next", "--stdio", "--toolset", "core"]
   },
   "prune": {
     "enabled": true,
@@ -265,7 +267,7 @@ Initial config (global defaults, overridable per project):
 - Diagnostics UI (`/kota pruning` details)
 
 ## 14. Risks / trade-offs
-- `bunx kotadb@next` implies network + moving target; simple but can break unexpectedly.
+- `bun x kotadb@next` implies network + moving target; simple but can break unexpectedly.
 - Truncating tool results reduces “expand in TUI” unless blob cache pointers are implemented correctly.
 - Re-running tools for rehydration can drift as repo changes; blob cache mitigates.
 - AutoContext can become spammy; ship opt-in and strict triggers.
@@ -289,5 +291,8 @@ Initial config (global defaults, overridable per project):
 - MCP client: **use `@modelcontextprotocol/sdk` internally**, do not inject MCP tool schemas into context
 - `kota_search` default output: **compact**, auto-downshift to paths when needed
 - Pruning: **both** (LLM context + stored `kota_*` outputs) with **blob cache**
-- Runtime: **Bun required**, spawn via **`bunx kotadb@next`**
+- Runtime: **Bun required**, spawn via **`bun x kotadb@next`**
 - Config: global + project override at `~/.pi/agent/pi-kota.json` and `.pi/pi-kota.json`
+
+## Attribution
+pi-kota is built on top of [KotaDB](https://github.com/nicobailon/kotadb), created by **Nico Bailon**.

@@ -11,6 +11,11 @@ function isRepoRelativePath(token: string): boolean {
   return true;
 }
 
+function isWindowsDrivePrefixed(text: string, tokenStartIndex: number): boolean {
+  if (tokenStartIndex < 3) return false;
+  return /^[A-Za-z]:\/$/.test(text.slice(tokenStartIndex - 3, tokenStartIndex));
+}
+
 export function extractFilePaths(text: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -18,6 +23,9 @@ export function extractFilePaths(text: string): string[] {
   for (const m of text.matchAll(PATH_TOKEN_RE)) {
     const token = m[1];
     if (!token) continue;
+
+    const tokenStartIndex = m.index ?? -1;
+    if (tokenStartIndex >= 0 && isWindowsDrivePrefixed(text, tokenStartIndex)) continue;
     if (!isRepoRelativePath(token)) continue;
     if (seen.has(token)) continue;
 

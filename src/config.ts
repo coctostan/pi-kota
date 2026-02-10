@@ -9,6 +9,7 @@ export interface PiKotaConfig {
     toolset: "core";
     autoContext: AutoContextMode;
     confirmIndex: boolean;
+    connectTimeoutMs: number;
     command: string;
     args: string[];
   };
@@ -29,8 +30,9 @@ export const DEFAULT_CONFIG: PiKotaConfig = {
     toolset: "core",
     autoContext: "off",
     confirmIndex: true,
-    command: "bunx",
-    args: ["kotadb@next", "--stdio", "--toolset", "core"],
+    connectTimeoutMs: 10000,
+    command: "bun",
+    args: ["x", "kotadb@next", "--stdio", "--toolset", "core"],
   },
   prune: {
     enabled: true,
@@ -76,6 +78,60 @@ export function mergeConfig(base: PiKotaConfig, override: DeepPartial<PiKotaConf
   return out as unknown as PiKotaConfig;
 }
 
+function sanitizeBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function sanitizeNumber(value: unknown, fallback: number, min?: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  if (min !== undefined && value < min) return fallback;
+  return value;
+}
+
+function sanitizeString(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function sanitizeStringArray(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return fallback;
+  return value.every((item) => typeof item === "string") ? value : fallback;
+}
+
+export function sanitizeConfig(config: unknown, fallback: PiKotaConfig = DEFAULT_CONFIG): PiKotaConfig {
+  const root = isObject(config) ? config : {};
+  const kota = isObject(root.kota) ? root.kota : {};
+  const prune = isObject(root.prune) ? root.prune : {};
+  const blobs = isObject(root.blobs) ? root.blobs : {};
+
+  const autoContext =
+    kota.autoContext === "off" || kota.autoContext === "onPaths" || kota.autoContext === "always"
+      ? kota.autoContext
+      : fallback.kota.autoContext;
+
+  const command = sanitizeString(kota.command, fallback.kota.command);
+
+  return {
+    kota: {
+      toolset: kota.toolset === "core" ? "core" : fallback.kota.toolset,
+      autoContext,
+      confirmIndex: sanitizeBoolean(kota.confirmIndex, fallback.kota.confirmIndex),
+      connectTimeoutMs: sanitizeNumber(kota.connectTimeoutMs, fallback.kota.connectTimeoutMs, 1),
+      command: command.length > 0 ? command : fallback.kota.command,
+      args: sanitizeStringArray(kota.args, fallback.kota.args),
+    },
+    prune: {
+      enabled: sanitizeBoolean(prune.enabled, fallback.prune.enabled),
+      keepRecentTurns: sanitizeNumber(prune.keepRecentTurns, fallback.prune.keepRecentTurns, 0),
+      maxToolChars: sanitizeNumber(prune.maxToolChars, fallback.prune.maxToolChars, 1),
+      adaptive: sanitizeBoolean(prune.adaptive, fallback.prune.adaptive),
+    },
+    blobs: {
+      enabled: sanitizeBoolean(blobs.enabled, fallback.blobs.enabled),
+      dir: sanitizeString(blobs.dir, fallback.blobs.dir),
+    },
+  };
+}
+
 async function readJsonIfExists(filePath: string): Promise<Record<string, unknown> | undefined> {
   try {
     const raw = await readFile(filePath, "utf8");
@@ -106,12 +162,14 @@ export async function loadConfig(opts?: {
   const sources: { global?: string; project?: string } = {};
 
   if (globalJson) {
-    config = mergeConfig(config, globalJson as DeepPartial<PiKotaConfig>);
+    const merged = mergeConfig(config, globalJson as DeepPartial<PiKotaConfig>);
+    config = sanitizeConfig(merged, config);
     sources.global = globalPath;
   }
 
   if (projectJson) {
-    config = mergeConfig(config, projectJson as DeepPartial<PiKotaConfig>);
+    const merged = mergeConfig(config, projectJson as DeepPartial<PiKotaConfig>);
+    config = sanitizeConfig(merged, config);
     sources.project = projectPath;
   }
 
