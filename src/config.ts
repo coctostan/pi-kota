@@ -78,6 +78,64 @@ export function mergeConfig(base: PiKotaConfig, override: DeepPartial<PiKotaConf
   return out as unknown as PiKotaConfig;
 }
 
+function sanitizeBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function sanitizeNumber(value: unknown, fallback: number, min?: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  if (min !== undefined && value < min) return fallback;
+  return value;
+}
+
+function sanitizeString(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function sanitizeStringArray(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return fallback;
+  return value.every((item) => typeof item === "string") ? value : fallback;
+}
+
+export function sanitizeConfig(config: unknown): PiKotaConfig {
+  const root = isObject(config) ? config : {};
+  const kota = isObject(root.kota) ? root.kota : {};
+  const prune = isObject(root.prune) ? root.prune : {};
+  const blobs = isObject(root.blobs) ? root.blobs : {};
+
+  const autoContext =
+    kota.autoContext === "off" || kota.autoContext === "onPaths" || kota.autoContext === "always"
+      ? kota.autoContext
+      : DEFAULT_CONFIG.kota.autoContext;
+
+  const command = sanitizeString(kota.command, DEFAULT_CONFIG.kota.command);
+
+  return {
+    kota: {
+      toolset: kota.toolset === "core" ? "core" : DEFAULT_CONFIG.kota.toolset,
+      autoContext,
+      confirmIndex: sanitizeBoolean(kota.confirmIndex, DEFAULT_CONFIG.kota.confirmIndex),
+      connectTimeoutMs: sanitizeNumber(
+        kota.connectTimeoutMs,
+        DEFAULT_CONFIG.kota.connectTimeoutMs,
+        1,
+      ),
+      command: command.length > 0 ? command : DEFAULT_CONFIG.kota.command,
+      args: sanitizeStringArray(kota.args, DEFAULT_CONFIG.kota.args),
+    },
+    prune: {
+      enabled: sanitizeBoolean(prune.enabled, DEFAULT_CONFIG.prune.enabled),
+      keepRecentTurns: sanitizeNumber(prune.keepRecentTurns, DEFAULT_CONFIG.prune.keepRecentTurns, 0),
+      maxToolChars: sanitizeNumber(prune.maxToolChars, DEFAULT_CONFIG.prune.maxToolChars, 1),
+      adaptive: sanitizeBoolean(prune.adaptive, DEFAULT_CONFIG.prune.adaptive),
+    },
+    blobs: {
+      enabled: sanitizeBoolean(blobs.enabled, DEFAULT_CONFIG.blobs.enabled),
+      dir: sanitizeString(blobs.dir, DEFAULT_CONFIG.blobs.dir),
+    },
+  };
+}
+
 async function readJsonIfExists(filePath: string): Promise<Record<string, unknown> | undefined> {
   try {
     const raw = await readFile(filePath, "utf8");
@@ -117,11 +175,13 @@ export async function loadConfig(opts?: {
     sources.project = projectPath;
   }
 
+  const sanitized = sanitizeConfig(config);
+
   config = {
-    ...config,
+    ...sanitized,
     blobs: {
-      ...config.blobs,
-      dir: expandTilde(config.blobs.dir, homeDir),
+      ...sanitized.blobs,
+      dir: expandTilde(sanitized.blobs.dir, homeDir),
     },
   };
 
