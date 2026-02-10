@@ -21,9 +21,17 @@ function isSpawnEnoent(error: unknown): boolean {
   );
 }
 
+const BUN_TOKEN_PATTERN = /(^|[^a-z0-9_])bun([^a-z0-9_]|$)/;
+const BUN_MISSING_STDERR_PATTERNS = [
+  /(?:^|\s)(?:\/usr\/bin\/)?env:\s*['"`‘’]?bun['"`‘’]?:\s*no such file or directory(?:\s|$)/,
+  /(?:^|\s)['"`‘’]?bun['"`‘’]?:\s*not found(?:\s|$)/,
+];
+
 function hasBunMissingInStderr(stderr: string): boolean {
-  const value = stderr.toLowerCase();
-  return /env:\s*bun/.test(value) || /bun:\s*not found/.test(value) || (value.includes("bun") && value.includes("no such file or directory"));
+  return stderr.split(/\r?\n/).some((line) => {
+    const normalizedLine = line.toLowerCase();
+    return BUN_TOKEN_PATTERN.test(normalizedLine) && BUN_MISSING_STDERR_PATTERNS.some((pattern) => pattern.test(normalizedLine));
+  });
 }
 
 function toStderrSnippet(stderr: string): string {

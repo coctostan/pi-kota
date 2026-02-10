@@ -47,6 +47,30 @@ describe("KotaMcpClient.connect error classification", () => {
     }
   });
 
+  it("does not classify non-bun missing-file stderr as bun-not-found", async () => {
+    const client = new KotaMcpClient({
+      command: process.execPath,
+      args: [
+        "-e",
+        "process.stderr.write('bundle: No such file or directory\\n'); process.exit(1);",
+      ],
+      cwd: process.cwd(),
+    });
+
+    try {
+      const connectError = await client.connect().then(
+        () => null,
+        (error) => error,
+      );
+
+      expect(connectError).toBeInstanceOf(Error);
+      expect((connectError as Error).message).toMatch(/KotaDB subprocess failed/i);
+      expect((connectError as Error).message).not.toMatch(/bun.*not found on PATH/i);
+    } finally {
+      await client.close();
+    }
+  });
+
   it("surfaces stderr when subprocess exits early", async () => {
     const client = new KotaMcpClient({
       command: process.execPath,
