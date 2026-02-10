@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import type { PiKotaConfig } from "./config.js";
 import type { KotaMcpClient } from "./kota/mcp.js";
 
@@ -12,6 +14,10 @@ export interface RuntimeState {
   lastError: string | null;
 
   mcp: KotaMcpClient | null;
+}
+
+export function normalizeRepoPath(p: string): string {
+  return path.normalize(path.resolve(p));
 }
 
 export function createInitialRuntimeState(): RuntimeState {

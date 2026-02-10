@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { loadConfig } from "./config.js";
-import { createInitialRuntimeState } from "./runtime.js";
+import { createInitialRuntimeState, normalizeRepoPath } from "./runtime.js";
 
 import { KotaMcpClient } from "./kota/mcp.js";
 import { callBudgeted } from "./kota/tools.js";
@@ -36,7 +36,11 @@ export default function (pi: ExtensionAPI) {
   const state = createInitialRuntimeState();
 
   async function refreshConfig(ctx: { cwd: string }) {
-    const res = await loadConfig({ cwd: ctx.cwd, projectRoot: state.repoRoot ?? ctx.cwd });
+    if (!state.repoRoot) {
+      state.repoRoot = await detectRepoRoot(pi, ctx.cwd);
+    }
+
+    const res = await loadConfig({ cwd: ctx.cwd, projectRoot: state.repoRoot });
     state.config = res.config;
     state.configSources = res.sources;
   }
@@ -118,7 +122,7 @@ export default function (pi: ExtensionAPI) {
 
   async function ensureRepoIndexed(ctx: { cwd: string; hasUI?: boolean; ui?: any }): Promise<void> {
     if (!state.config) throw new Error("pi-kota: config not loaded");
-    const targetPath = state.repoRoot ?? ctx.cwd;
+    const targetPath = normalizeRepoPath(state.repoRoot ?? ctx.cwd);
 
     await ensureIndexed({
       state: {
@@ -239,7 +243,9 @@ export default function (pi: ExtensionAPI) {
             "pi-kota status",
             `kota: ${state.kotaStatus}`,
             `repo: ${state.repoRoot ?? "(unknown)"}`,
-            `indexed: ${state.indexedRepoRoot === state.repoRoot && state.repoRoot ? "yes" : "no"}`,
+            `indexed: ${
+              state.repoRoot && state.indexedRepoRoot === normalizeRepoPath(state.repoRoot) ? "yes" : "no"
+            }`,
             `config: global=${src?.global ?? "(none)"}, project=${src?.project ?? "(none)"}`,
             tools.length ? `mcp tools: ${tools.join(", ")}` : "mcp tools: (unknown/unavailable)",
             state.lastError ? `lastError: ${state.lastError}` : "",
@@ -270,7 +276,7 @@ export default function (pi: ExtensionAPI) {
         if (!state.config) throw new Error("pi-kota: config not loaded");
         await ensureConnected(ctx);
 
-        const targetPath = state.repoRoot ?? ctx.cwd;
+        const targetPath = normalizeRepoPath(state.repoRoot ?? ctx.cwd);
         let output = "";
         await ensureIndexed({
           state: {
@@ -309,8 +315,9 @@ export default function (pi: ExtensionAPI) {
       if (!state.config) throw new Error("pi-kota: config not loaded");
 
       const p = (params as { path?: string }).path ?? state.repoRoot ?? ctx.cwd;
-      const res = await callKotaToolStrict(ctx, "index", { path: p });
-      state.indexedRepoRoot = p;
+      const normalizedPath = normalizeRepoPath(p);
+      const res = await callKotaToolStrict(ctx, "index", { path: normalizedPath });
+      state.indexedRepoRoot = normalizedPath;
 
       return { content: [{ type: "text", text: res.text }], details: { indexed: true } };
     },
