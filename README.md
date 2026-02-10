@@ -1,49 +1,78 @@
-![pi-kota banner](docs/assets/banners/21x6/banner-01-21x6.jpg)
+![pi-kota banner](docs/assets/banners/21x6/banner-01-21x6.png)
 
 # pi-kota
 
-KotaDB thin wrapper + context pruning for **pi** (TypeScript/JavaScript repos).
+KotaDB thin wrapper + context pruning extension for **pi** (TypeScript/JavaScript repos).
 
-## Executive summary
+## What it provides
 
-### What it is
-`pi-kota` is a **pi extension** that integrates **KotaDB** (local TS/JS code intelligence: search, dependency graph, symbol usages, impact analysis) into pi as a **small, output-budgeted toolset**, and adds **context pruning** so long-running sessions don’t bloat the model’s prompt with historical tool output.
+- Bounded-output `kota_*` tools backed by KotaDB over MCP stdio
+- Session context pruning to keep long runs lean
+- Tool-result truncation with blob caching for recoverability
 
-- **KotaDB = brain** (persistent index/graph outside the LLM context)
-- **pi extension = governor** (retrieval discipline + context hygiene + rehydration)
+## Prerequisites
 
-### Why it’s worth doing
-Large TS/JS repo sessions degrade mainly because:
-1) answering dependency/usage/impact questions pulls large snippets/files into the conversation
-2) those outputs persist across turns, causing linear context growth and frequent compactions
+`pi-kota` requires Bun tooling to launch KotaDB:
 
-`pi-kota` changes the economics:
-- most questions become **small structured queries** (paths/counts/snippets) instead of full file reads
-- older heavy outputs get **pruned from the LLM context** while staying recoverable
+- `bun`
+- `bunx`
 
-### Key decisions
-- Indexing requires **user confirmation**.
-- Auto task-context injection is **opt-in** (recommended mode: `onPaths` for 1–3 explicit file paths).
-- Pruning happens both:
-  - in the **LLM context** (`context` event), and
-  - in **stored tool outputs** (`tool_result` event), with a **blob cache** to preserve full results.
+Quick check:
 
-## Docs
-- Design doc: `docs/design.md`
+```bash
+bun --version
+bunx --version
+```
 
-## (Planned) installation
+## Install the extension
+
+You can place the extension either project-local or global.
 
 ### Project-local
-Copy/point the extension into your repo:
-- `.pi/extensions/pi-kota/index.ts` (or a single `.ts` file)
+
+Put the extension at:
+
+- `.pi/extensions/pi-kota/index.ts`
+
+or point pi to this repo file directly:
+
+- `/home/pi/pi-kota/src/index.ts`
 
 ### Global
-Place it in:
+
+Put it under:
+
 - `~/.pi/agent/extensions/`
 
-## Development status
-This repository currently contains the design/spec. Implementation will add:
-- a KotaDB subprocess manager (`bunx kotadb@next --stdio`)
-- a minimal MCP stdio client
-- pi tool wrappers (`kota_search`, `kota_deps`, etc.)
-- pruning + blob cache
+## Commands
+
+- `/kota status`
+- `/kota index`
+- `/kota restart`
+- `/kota reload-config`
+
+## Tools
+
+- `kota_index`
+- `kota_search`
+- `kota_deps`
+- `kota_usages`
+- `kota_impact`
+- `kota_task_context`
+
+## Config files
+
+- Global override: `~/.pi/agent/pi-kota.json`
+- Project override: `.pi/pi-kota.json`
+
+## Development
+
+```bash
+npm install
+npm test
+npm run typecheck
+```
+
+## Design reference
+
+- `docs/design.md`

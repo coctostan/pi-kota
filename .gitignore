@@ -7,3 +7,6 @@ node_modules/
 
 # Local caches
 .pi-kota-cache/
+
+# KotaDB local storage
+.kotadb/
