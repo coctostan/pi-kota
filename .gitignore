@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+*.log
+
+# Optional local build artifacts
+/dist/
+
+# Local caches
+.pi-kota-cache/

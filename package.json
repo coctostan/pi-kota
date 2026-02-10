@@ -1,0 +1,13 @@
+{
+  "name": "pi-kota",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "KotaDB thin wrapper + context pruning extension for pi",
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
