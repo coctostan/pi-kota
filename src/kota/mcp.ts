@@ -52,6 +52,10 @@ export class KotaMcpClient {
     return this.client !== null;
   }
 
+  disconnect(): void {
+    this.client = null;
+  }
+
   async connect(): Promise<void> {
     if (this.client) return;
 

@@ -108,6 +108,7 @@ export default function (pi: ExtensionAPI) {
       maxChars: 5000,
       listTools: () => state.mcp!.listTools(),
       callTool: (n, a) => state.mcp!.callTool(n, a),
+      onTransportError: () => state.mcp?.disconnect(),
     });
   }
 
