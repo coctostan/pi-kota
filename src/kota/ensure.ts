@@ -6,13 +6,14 @@ export async function ensureIndexed(opts: {
   /** If true, run indexing even if state.indexed is already true. */
   force?: boolean;
 }): Promise<void> {
-  if (opts.state.indexed && !opts.force) return;
-
-  // Promise de-dupe for true concurrency safety.
+  // If an indexing run is already in-flight, always await it (even if state.indexed is already true).
+  // This matters for forced re-indexing (state.indexed=true, indexPromise!=null).
   if (opts.state.indexPromise) {
     await opts.state.indexPromise;
     return;
   }
+
+  if (opts.state.indexed && !opts.force) return;
 
   const run = (async () => {
     if (opts.confirmIndex) {

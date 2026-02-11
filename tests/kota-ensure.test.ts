@@ -136,4 +136,37 @@ describe("ensureIndexed edge cases", () => {
     expect(index).toHaveBeenCalledTimes(1);
     expect(state.indexed).toBe(true);
   });
+
+  it("awaits in-flight indexPromise even if already indexed", async () => {
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      release = () => resolve();
+    });
+
+    const state: { indexed: boolean; indexPromise: Promise<void> | null } = {
+      indexed: true,
+      indexPromise: barrier,
+    };
+
+    const index = vi.fn(async () => {});
+
+    const p = ensureIndexed({
+      state,
+      confirmIndex: false,
+      confirm: vi.fn(async () => true),
+      index,
+    });
+
+    const raced = await Promise.race([
+      p.then(() => "done" as const),
+      new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 25)),
+    ]);
+
+    expect(raced).toBe("timeout");
+
+    release();
+    await p;
+
+    expect(index).not.toHaveBeenCalled();
+  });
 });
