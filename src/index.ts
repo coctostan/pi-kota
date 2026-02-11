@@ -213,6 +213,12 @@ export default function (pi: ExtensionAPI) {
         set indexed(v: boolean) {
           state.indexedRepoRoot = v ? targetPath : null;
         },
+        get indexPromise() {
+          return state.indexPromise;
+        },
+        set indexPromise(p: Promise<void> | null) {
+          state.indexPromise = p;
+        },
       },
       confirmIndex: state.config.kota.confirmIndex,
       confirm: (t, m) => (ctx.hasUI ? ctx.ui.confirm(t, m) : Promise.resolve(true)),
@@ -382,6 +388,12 @@ export default function (pi: ExtensionAPI) {
             },
             set indexed(v: boolean) {
               state.indexedRepoRoot = v ? targetPath : null;
+            },
+            get indexPromise() {
+              return state.indexPromise;
+            },
+            set indexPromise(p: Promise<void> | null) {
+              state.indexPromise = p;
             },
           },
           confirmIndex: state.config.kota.confirmIndex,
