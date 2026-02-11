@@ -24,3 +24,35 @@ describe("extractFilePaths", () => {
     ]);
   });
 });
+
+describe("extractFilePaths edge cases", () => {
+  it("returns empty for empty string", () => {
+    expect(extractFilePaths("")).toEqual([]);
+  });
+
+  it("returns empty for string with no slash-separated tokens", () => {
+    expect(extractFilePaths("hello world foo bar")).toEqual([]);
+  });
+
+  it("handles paths with dots in directory names", () => {
+    expect(extractFilePaths("Open src/.hidden/config.ts")).toEqual(["src/.hidden/config.ts"]);
+  });
+
+  it("handles paths with hyphens and underscores", () => {
+    expect(extractFilePaths("Check my-app/src_utils/helper-fn.ts")).toEqual([
+      "my-app/src_utils/helper-fn.ts",
+    ]);
+  });
+
+  it("ignores paths with .. (parent traversal)", () => {
+    expect(extractFilePaths("Read ../sibling/file.ts")).toEqual([]);
+  });
+
+  it("handles multiple paths on same line", () => {
+    expect(extractFilePaths("Diff src/a.ts against lib/b.ts")).toEqual(["src/a.ts", "lib/b.ts"]);
+  });
+
+  it("ignores directory-only paths (no file extension in last segment)", () => {
+    expect(extractFilePaths("Look at src/utils/helpers")).toEqual([]);
+  });
+});

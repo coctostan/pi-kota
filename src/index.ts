@@ -6,6 +6,9 @@ import { createInitialRuntimeState, normalizeRepoPath } from "./runtime.js";
 import { KotaMcpClient } from "./kota/mcp.js";
 import { callBudgeted } from "./kota/tools.js";
 import { ensureIndexed } from "./kota/ensure.js";
+import { evictBlobs } from "./blobs-evict.js";
+import { isIndexStale } from "./staleness.js";
+import { createLogger, type Logger } from "./logger.js";
 
 import {
   kotaIndexSchema,
@@ -32,8 +35,18 @@ async function detectRepoRoot(pi: ExtensionAPI, cwd: string): Promise<string> {
   return cwd;
 }
 
+async function getHeadCommit(pi: ExtensionAPI, cwd: string): Promise<string | null> {
+  try {
+    const res = await pi.exec("git", ["rev-parse", "HEAD"], { cwd, timeout: 3000 });
+    return res.code === 0 ? res.stdout.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function (pi: ExtensionAPI) {
   const state = createInitialRuntimeState();
+  let logger: Logger = { async log() {}, async close() {} };
 
   async function refreshConfig(ctx: { cwd: string }) {
     if (!state.repoRoot) {
@@ -69,6 +82,8 @@ export default function (pi: ExtensionAPI) {
       state.kotaStatus = "running";
       state.lastError = null;
 
+      await logger.log("mcp", "connected", { repo: state.repoRoot ?? "(unknown)" });
+
       if (ctx.hasUI) {
         ctx.ui.setStatus("pi-kota", `kota: running | repo: ${state.repoRoot}`);
       }
@@ -76,6 +91,8 @@ export default function (pi: ExtensionAPI) {
       state.kotaStatus = "error";
       state.lastError = e instanceof Error ? e.message : String(e);
       state.mcp = null;
+
+      await logger.log("mcp", "connect-error", { error: state.lastError });
 
       if (ctx.hasUI) {
         ctx.ui.setStatus("pi-kota", `kota: error (${state.lastError})`);
@@ -102,14 +119,24 @@ export default function (pi: ExtensionAPI) {
     await ensureConnected(ctx);
     if (!state.config || !state.mcp) throw new Error("pi-kota: not connected");
 
-    return callBudgeted({
+    await logger.log("tool", "call", {
       toolName,
-      args,
-      maxChars: 5000,
-      listTools: () => state.mcp!.listTools(),
-      callTool: (n, a) => state.mcp!.callTool(n, a),
-      onTransportError: () => state.mcp?.disconnect(),
+      args: String(JSON.stringify(args) ?? "").slice(0, 200),
     });
+
+    const release = state.inFlight.acquire();
+    try {
+      return await callBudgeted({
+        toolName,
+        args,
+        maxChars: 5000,
+        listTools: () => state.mcp!.listTools(),
+        callTool: (n, a) => state.mcp!.callTool(n, a),
+        onTransportError: () => state.mcp?.disconnect(),
+      });
+    } finally {
+      release();
+    }
   }
 
   async function callKotaToolStrict(
@@ -122,9 +149,23 @@ export default function (pi: ExtensionAPI) {
     return res;
   }
 
+  async function checkStaleness(ctx: { cwd: string; hasUI?: boolean; ui?: any }): Promise<void> {
+    if (!state.indexedAtCommit || !state.repoRoot) return;
+    const head = await getHeadCommit(pi, state.repoRoot);
+    if (!isIndexStale(state.indexedAtCommit, head)) return;
+
+    if (ctx.hasUI) {
+      ctx.ui.notify(
+        "pi-kota: repo HEAD has changed since last index. Run /kota index to update.",
+        "warning",
+      );
+    }
+  }
+
   async function ensureRepoIndexed(ctx: { cwd: string; hasUI?: boolean; ui?: any }): Promise<void> {
     if (!state.config) throw new Error("pi-kota: config not loaded");
     const targetPath = normalizeRepoPath(state.repoRoot ?? ctx.cwd);
+    const wasAlreadyIndexed = state.indexedRepoRoot === targetPath;
 
     await ensureIndexed({
       state: {
@@ -139,13 +180,31 @@ export default function (pi: ExtensionAPI) {
       confirm: (t, m) => (ctx.hasUI ? ctx.ui.confirm(t, m) : Promise.resolve(true)),
       index: async () => {
         await callKotaToolStrict(ctx, "index", { path: targetPath });
+        state.indexedAtCommit = await getHeadCommit(pi, state.repoRoot ?? ctx.cwd);
       },
     });
+
+    if (wasAlreadyIndexed) {
+      await checkStaleness(ctx);
+    }
   }
 
   pi.on("session_start", async (_event, ctx: any) => {
     state.repoRoot = await detectRepoRoot(pi, ctx.cwd);
     await refreshConfig(ctx);
+
+    logger = await createLogger({
+      enabled: state.config?.log.enabled ?? false,
+      path: state.config?.log.path,
+    });
+
+    if (state.config?.blobs.enabled) {
+      evictBlobs({
+        dir: state.config.blobs.dir,
+        maxAgeDays: state.config.blobs.maxAgeDays,
+        maxSizeBytes: state.config.blobs.maxSizeBytes,
+      }).catch(() => {});
+    }
 
     if (ctx.hasUI) {
       ctx.ui.setStatus("pi-kota", `kota: stopped | repo: ${state.repoRoot}`);
@@ -227,6 +286,8 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async () => {
+    await state.inFlight.drain(3000);
+    await logger.close().catch(() => {});
     await state.mcp?.close().catch(() => {});
     state.mcp = null;
   });
@@ -270,6 +331,7 @@ export default function (pi: ExtensionAPI) {
         state.mcp = null;
         state.kotaStatus = "stopped";
         state.indexedRepoRoot = null;
+        state.indexedAtCommit = null;
         ctx.ui.notify("KotaDB connection reset. Next kota_* call will reconnect.", "info");
         return;
       }
@@ -294,6 +356,7 @@ export default function (pi: ExtensionAPI) {
           index: async () => {
             const res = await callKotaToolStrict(ctx, "index", { path: targetPath });
             output = res.text;
+            state.indexedAtCommit = await getHeadCommit(pi, state.repoRoot ?? ctx.cwd);
           },
         });
 
@@ -320,6 +383,7 @@ export default function (pi: ExtensionAPI) {
       const normalizedPath = normalizeRepoPath(p, ctx.cwd);
       const res = await callKotaToolStrict(ctx, "index", { path: normalizedPath });
       state.indexedRepoRoot = normalizedPath;
+      state.indexedAtCommit = await getHeadCommit(pi, state.repoRoot ?? ctx.cwd);
 
       return { content: [{ type: "text", text: res.text }], details: { indexed: true } };
     },

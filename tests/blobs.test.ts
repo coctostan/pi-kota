@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -37,5 +37,29 @@ describe("writeBlob", () => {
 
     expect(await readFile(res.blobPath, "utf8")).toBe(content);
     expect(res.bytes).toBe(Buffer.byteLength(content, "utf8"));
+  });
+});
+
+describe("writeBlob edge cases", () => {
+  it("throws when parent directory is not writable", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "pi-kota-blobs-ro-"));
+    const roDir = path.join(dir, "readonly");
+    await mkdir(roDir, { mode: 0o444 });
+
+    await expect(writeBlob({ dir: path.join(roDir, "nested"), content: "test" })).rejects.toThrow();
+  });
+
+  it("handles empty string content", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "pi-kota-blobs-empty-"));
+    const res = await writeBlob({ dir, content: "" });
+    expect(res.blobId).toMatch(/^[a-f0-9]{64}$/);
+    expect(res.bytes).toBe(0);
+    expect(await readFile(res.blobPath, "utf8")).toBe("");
+  });
+
+  it("uses .json extension when specified", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "pi-kota-blobs-ext-"));
+    const res = await writeBlob({ dir, content: '{"a":1}', ext: ".json" });
+    expect(res.blobPath).toMatch(/\.json$/);
   });
 });

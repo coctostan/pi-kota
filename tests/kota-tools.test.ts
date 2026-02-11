@@ -99,3 +99,96 @@ describe("callBudgeted", () => {
     expect(result.text).toBe("abcd…");
   });
 });
+
+describe("callBudgeted edge cases", () => {
+  it("handles empty content array from MCP", async () => {
+    const result = await callBudgeted({
+      toolName: "search",
+      args: {},
+      maxChars: 5000,
+      listTools: async () => ["search"],
+      callTool: async () => ({
+        content: [],
+        raw: { content: [] },
+      }),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.text).toContain('"content"');
+  });
+
+  it("truncates huge error messages to maxChars", async () => {
+    const result = await callBudgeted({
+      toolName: "search",
+      args: {},
+      maxChars: 50,
+      listTools: async () => ["search"],
+      callTool: async () => {
+        throw new Error("E".repeat(1000));
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.text.length).toBeLessThanOrEqual(50);
+    expect(result.text).toMatch(/…$/);
+  });
+
+  it("handles ECONNRESET as transport error", async () => {
+    let transportErrorFired = false;
+    const result = await callBudgeted({
+      toolName: "search",
+      args: {},
+      maxChars: 5000,
+      listTools: async () => [],
+      callTool: async () => {
+        const err = new Error("read ECONNRESET") as Error & { code: string };
+        err.code = "ECONNRESET";
+        throw err;
+      },
+      onTransportError: () => {
+        transportErrorFired = true;
+      },
+    });
+
+    expect(transportErrorFired).toBe(true);
+    expect(result.ok).toBe(false);
+  });
+
+  it("handles ERR_STREAM_DESTROYED as transport error", async () => {
+    let transportErrorFired = false;
+    const result = await callBudgeted({
+      toolName: "search",
+      args: {},
+      maxChars: 5000,
+      listTools: async () => [],
+      callTool: async () => {
+        const err = new Error("stream destroyed") as Error & { code: string };
+        err.code = "ERR_STREAM_DESTROYED";
+        throw err;
+      },
+      onTransportError: () => {
+        transportErrorFired = true;
+      },
+    });
+
+    expect(transportErrorFired).toBe(true);
+    expect(result.ok).toBe(false);
+  });
+
+  it("treats non-transport errors as recoverable (lists tools)", async () => {
+    const listTools = vi.fn(async () => ["search", "deps"]);
+    const result = await callBudgeted({
+      toolName: "search",
+      args: {},
+      maxChars: 5000,
+      listTools,
+      callTool: async () => {
+        throw new Error("some random error");
+      },
+    });
+
+    expect(listTools).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+    expect(result.text).toContain("search, deps");
+  });
+});
