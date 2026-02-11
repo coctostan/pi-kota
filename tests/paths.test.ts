@@ -7,10 +7,15 @@ describe("extractFilePaths", () => {
     expect(extractFilePaths(text)).toEqual(["src/index.ts", "docs/design.md"]);
   });
 
+  it("extracts path at beginning of string", () => {
+    expect(extractFilePaths("src/index.ts then more text")).toEqual(["src/index.ts"]);
+  });
+
   it("ignores absolute paths and urls", () => {
     const text = "See https://example.com and /etc/passwd";
     expect(extractFilePaths(text)).toEqual([]);
   });
+
 
   it("ignores windows paths mixed with repo-relative paths", () => {
     const text = "Read C:/Users/dev/pi-kota/src/index.ts and src/paths.ts";

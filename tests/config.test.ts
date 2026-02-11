@@ -99,4 +99,51 @@ describe("config", () => {
     expect(config.prune.maxToolChars).toBe(777);
     expect(sources.project).toBe(path.join(root, ".pi", "pi-kota.json"));
   });
+
+  it("falls back for invalid enums, arrays, and out-of-range numbers", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "pi-kota-config-invalid-enums-"));
+    await mkdir(path.join(root, ".pi"), { recursive: true });
+
+    await writeFile(
+      path.join(root, ".pi", "pi-kota.json"),
+      JSON.stringify({
+        kota: {
+          toolset: "nope",
+          autoContext: "bad",
+          connectTimeoutMs: 0,
+          confirmIndex: "no",
+          command: "",
+          args: ["ok", 1],
+        },
+        prune: { enabled: true, keepRecentTurns: -1, maxToolChars: 0, adaptive: "no" },
+        blobs: { enabled: true, maxAgeDays: 0, maxSizeBytes: -1 },
+        log: { enabled: true, path: "~/.pi/cache/pi-kota/custom.jsonl" },
+      }),
+      "utf8",
+    );
+
+    const { config } = await loadConfig({ cwd: root, projectRoot: root, homeDir: root });
+
+    expect(config.kota.toolset).toBe(DEFAULT_CONFIG.kota.toolset);
+    expect(config.kota.autoContext).toBe(DEFAULT_CONFIG.kota.autoContext);
+    expect(config.kota.connectTimeoutMs).toBe(DEFAULT_CONFIG.kota.connectTimeoutMs);
+    expect(config.kota.confirmIndex).toBe(DEFAULT_CONFIG.kota.confirmIndex);
+    expect(config.kota.command).toBe(DEFAULT_CONFIG.kota.command);
+    expect(config.kota.args).toEqual(DEFAULT_CONFIG.kota.args);
+
+    expect(config.prune.keepRecentTurns).toBe(DEFAULT_CONFIG.prune.keepRecentTurns);
+    expect(config.prune.maxToolChars).toBe(DEFAULT_CONFIG.prune.maxToolChars);
+    expect(config.prune.adaptive).toBe(DEFAULT_CONFIG.prune.adaptive);
+
+    // tilde expansion should be applied for log path
+    expect(config.log.path).toBe(path.join(root, ".pi/cache/pi-kota/custom.jsonl"));
+  });
+
+  it("throws on invalid JSON (non-ENOENT read failure)", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "pi-kota-config-bad-json-"));
+    await mkdir(path.join(root, ".pi"), { recursive: true });
+    await writeFile(path.join(root, ".pi", "pi-kota.json"), "{ not-json ", "utf8");
+
+    await expect(loadConfig({ cwd: root, projectRoot: root, homeDir: root })).rejects.toThrow();
+  });
 });

@@ -102,9 +102,9 @@ describe("ensureIndexed edge cases", () => {
     };
 
     let indexCalls = 0;
-    let releaseBarrier: (() => void) | null = null;
+    let releaseBarrier!: () => void;
     const barrier = new Promise<void>((resolve) => {
-      releaseBarrier = resolve;
+      releaseBarrier = () => resolve();
     });
 
     const index = vi.fn(async () => {
@@ -128,7 +128,7 @@ describe("ensureIndexed edge cases", () => {
 
     // Let both callers enter ensureIndexed before releasing.
     await Promise.resolve();
-    releaseBarrier?.();
+    releaseBarrier();
 
     await Promise.all([p1, p2]);
 

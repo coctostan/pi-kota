@@ -25,7 +25,7 @@ vi.mock("../src/config.js", () => {
 
 // Fully mock the MCP client so we never start a real kotadb process.
 let indexCalls = 0;
-let releaseIndexBarrier: (() => void) | null = null;
+let releaseIndexBarrier: (() => void) | undefined;
 
 vi.mock("../src/kota/mcp.js", () => {
   function toTextContent(content: unknown[] | undefined): string {
@@ -51,7 +51,7 @@ vi.mock("../src/kota/mcp.js", () => {
       if (name === "index_repository") {
         indexCalls++;
         const barrier = new Promise<void>((resolve) => {
-          releaseIndexBarrier = resolve;
+          releaseIndexBarrier = () => resolve();
         });
         await barrier;
         return { content: [{ type: "text", text: "indexed" }], raw: { ok: true } };
@@ -113,7 +113,7 @@ describe("index.ts staleness + indexing", () => {
     // Release the index barrier so indexing can finish.
     const pIndex = kotaIndex.execute("id", {}, undefined, undefined, ctx);
     await waitForBarrier();
-    releaseIndexBarrier?.();
+    releaseIndexBarrier!();
     await pIndex;
 
     // Now HEAD changes; first use should warn.
@@ -131,7 +131,7 @@ describe("index.ts staleness + indexing", () => {
 
   it("dedupes concurrent indexing from multiple tool calls", async () => {
     indexCalls = 0;
-    releaseIndexBarrier = null;
+    releaseIndexBarrier = undefined;
 
     const api = createMockApi();
     api.pi.exec = vi.fn(async (cmd: string, args: string[]) => {
@@ -164,7 +164,7 @@ describe("index.ts staleness + indexing", () => {
     const p2 = search.execute("id", { query: "b", output: "paths", limit: 1 }, undefined, undefined, ctx);
 
     await waitForBarrier();
-    releaseIndexBarrier?.();
+    releaseIndexBarrier!();
 
     await Promise.all([p1, p2]);
 
