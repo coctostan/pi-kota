@@ -94,4 +94,46 @@ describe("ensureIndexed edge cases", () => {
     expect(confirm).not.toHaveBeenCalled();
     expect(index).toHaveBeenCalledTimes(1);
   });
+
+  it("dedupes concurrent calls (index runs once)", async () => {
+    const state: { indexed: boolean; indexPromise: Promise<void> | null } = {
+      indexed: false,
+      indexPromise: null,
+    };
+
+    let indexCalls = 0;
+    let releaseBarrier: (() => void) | null = null;
+    const barrier = new Promise<void>((resolve) => {
+      releaseBarrier = resolve;
+    });
+
+    const index = vi.fn(async () => {
+      indexCalls++;
+      await barrier;
+    });
+
+    const p1 = ensureIndexed({
+      state,
+      confirmIndex: false,
+      confirm: vi.fn(async () => true),
+      index,
+    });
+
+    const p2 = ensureIndexed({
+      state,
+      confirmIndex: false,
+      confirm: vi.fn(async () => true),
+      index,
+    });
+
+    // Let both callers enter ensureIndexed before releasing.
+    await Promise.resolve();
+    releaseBarrier?.();
+
+    await Promise.all([p1, p2]);
+
+    expect(indexCalls).toBe(1);
+    expect(index).toHaveBeenCalledTimes(1);
+    expect(state.indexed).toBe(true);
+  });
 });
