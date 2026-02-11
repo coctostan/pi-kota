@@ -73,12 +73,19 @@ vi.mock("../src/kota/mcp.js", () => {
 });
 
 // Wait for the index barrier to be armed (async call chain needs several microticks).
-async function waitForBarrier() {
-  while (!releaseIndexBarrier) await new Promise((r) => setTimeout(r, 10));
+async function waitForBarrier(timeoutMs = 500) {
+  const start = Date.now();
+  while (!releaseIndexBarrier) {
+    if (Date.now() - start > timeoutMs) throw new Error("index barrier not armed");
+    await new Promise((r) => setTimeout(r, 10));
+  }
 }
 
 describe("index.ts staleness + indexing", () => {
   it("warns at most once per HEAD when index is stale", async () => {
+    indexCalls = 0;
+    releaseIndexBarrier = undefined;
+
     const api = createMockApi();
 
     // Control git HEAD responses.
@@ -125,6 +132,62 @@ describe("index.ts staleness + indexing", () => {
     // Second use with same HEAD should NOT warn again.
     await search.execute("id", { query: "y", output: "paths", limit: 1 }, undefined, undefined, ctx);
     expect(ctx.ui.notify).toHaveBeenCalledTimes(1);
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
+
+  it("/kota index forces a re-index when HEAD changed", async () => {
+    indexCalls = 0;
+    releaseIndexBarrier = undefined;
+
+    const api = createMockApi();
+
+    // Control git HEAD responses.
+    api.pi.exec = vi.fn(async (cmd: string, args: string[]) => {
+      if (cmd === "git" && args.join(" ") === "rev-parse --show-toplevel") {
+        return { code: 0, stdout: process.cwd() + "\n", stderr: "" };
+      }
+      if (cmd === "git" && args.join(" ") === "rev-parse HEAD") {
+        return { code: 0, stdout: (api as any).__head + "\n", stderr: "" };
+      }
+      return { code: 1, stdout: "", stderr: "" };
+    });
+    (api as any).__head = "HEAD-1";
+
+    extension(api.pi as any);
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      hasUI: true,
+      ui: {
+        setStatus: vi.fn(),
+        notify: vi.fn(),
+        confirm: vi.fn(async () => true),
+      },
+    };
+
+    await api.fire("session_start", {}, ctx);
+
+    // Index once via tool.
+    const kotaIndex = api.tools.get("kota_index");
+    const pIndex = kotaIndex.execute("id", {}, undefined, undefined, ctx);
+    await waitForBarrier();
+    releaseIndexBarrier!();
+    await pIndex;
+    expect(indexCalls).toBe(1);
+
+    // Make index stale.
+    (api as any).__head = "HEAD-2";
+
+    // /kota index should trigger a second indexing run.
+    releaseIndexBarrier = undefined;
+    const kotaCmd = api.commands.get("kota");
+    const pReindex = kotaCmd.handler("index", ctx);
+    await waitForBarrier();
+    releaseIndexBarrier!();
+    await pReindex;
+
+    expect(indexCalls).toBe(2);
 
     await api.fire("session_shutdown", {}, ctx);
   });

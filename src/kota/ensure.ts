@@ -3,8 +3,10 @@ export async function ensureIndexed(opts: {
   confirmIndex: boolean;
   confirm: (title: string, msg: string) => Promise<boolean>;
   index: () => Promise<void>;
+  /** If true, run indexing even if state.indexed is already true. */
+  force?: boolean;
 }): Promise<void> {
-  if (opts.state.indexed) return;
+  if (opts.state.indexed && !opts.force) return;
 
   // Promise de-dupe for true concurrency safety.
   if (opts.state.indexPromise) {

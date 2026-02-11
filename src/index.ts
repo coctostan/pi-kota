@@ -397,6 +397,7 @@ export default function (pi: ExtensionAPI) {
               state.indexPromise = p;
             },
           },
+          force: true,
           confirmIndex: state.config.kota.confirmIndex,
           confirm: (t, m) => ctx.ui.confirm(t, m),
           index: async () => {
@@ -468,6 +469,7 @@ export default function (pi: ExtensionAPI) {
             state.indexPromise = p;
           },
         },
+        force: true,
         confirmIndex: false,
         confirm: async () => true,
         index: async () => {

@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fsMocks = vi.hoisted(() => {
   return {
-    readdir: vi.fn<[], any>(),
-    stat: vi.fn<[string], any>(),
-    unlink: vi.fn<[string], any>(),
+    readdir: vi.fn(),
+    stat: vi.fn(),
+    unlink: vi.fn(),
   };
 });
 
