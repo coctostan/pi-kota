@@ -6,7 +6,6 @@ import { createInitialRuntimeState, normalizeRepoPath } from "./runtime.js";
 import { KotaMcpClient } from "./kota/mcp.js";
 import { callBudgeted } from "./kota/tools.js";
 import { ensureIndexed } from "./kota/ensure.js";
-import { evictBlobs } from "./blobs-evict.js";
 import { isIndexStale } from "./staleness.js";
 import { createLogger, type Logger } from "./logger.js";
 
@@ -197,14 +196,6 @@ export default function (pi: ExtensionAPI) {
       enabled: state.config?.log.enabled ?? false,
       path: state.config?.log.path,
     });
-
-    if (state.config?.blobs.enabled) {
-      evictBlobs({
-        dir: state.config.blobs.dir,
-        maxAgeDays: state.config.blobs.maxAgeDays,
-        maxSizeBytes: state.config.blobs.maxSizeBytes,
-      }).catch(() => {});
-    }
 
     if (ctx.hasUI) {
       ctx.ui.setStatus("pi-kota", `kota: stopped | repo: ${state.repoRoot}`);
