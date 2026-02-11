@@ -288,4 +288,62 @@ describe("index.ts branch coverage", () => {
 
     await api.fire("session_shutdown", {}, ctx);
   });
+
+  it("/kota evict-blobs is a no-op when blobs are disabled", async () => {
+    resetBehavior();
+    evictSpy.mockClear();
+
+    setConfig({
+      ...getConfig(),
+      blobs: { ...getConfig().blobs, enabled: false },
+    });
+
+    const api = createMockApi();
+    installGitExecMocks(api, "HEAD-1");
+    extension(api.pi as any);
+
+    const ctx = makeCtx();
+    await api.fire("session_start", {}, ctx);
+
+    const kotaCmd = api.commands.get("kota");
+    await kotaCmd.handler("evict-blobs", ctx);
+
+    expect(evictSpy).not.toHaveBeenCalled();
+
+    const notifyArgs = ctx.ui.notify.mock.calls.map((c: any[]) => String(c[0])).join("\n");
+    expect(notifyArgs).toContain("Blob cache is disabled");
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
+
+  it("/kota evict-blobs reports errors but does not throw", async () => {
+    resetBehavior();
+    evictSpy.mockClear();
+    evictSpy.mockRejectedValueOnce(new Error("boom"));
+
+    setConfig({
+      ...getConfig(),
+      blobs: {
+        enabled: true,
+        dir: "/tmp/blobs",
+        maxAgeDays: 7,
+        maxSizeBytes: 1234,
+      },
+    });
+
+    const api = createMockApi();
+    installGitExecMocks(api, "HEAD-1");
+    extension(api.pi as any);
+
+    const ctx = makeCtx();
+    await api.fire("session_start", {}, ctx);
+
+    const kotaCmd = api.commands.get("kota");
+    await kotaCmd.handler("evict-blobs", ctx);
+
+    const notifyArgs = ctx.ui.notify.mock.calls.map((c: any[]) => String(c[0])).join("\n");
+    expect(notifyArgs).toContain("Blob eviction failed");
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
 });
