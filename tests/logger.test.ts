@@ -34,4 +34,12 @@ describe("Logger", () => {
     await logger.log("mcp", "connect", {});
     await logger.close();
   });
+
+  it("never throws if the log path is unwritable", async () => {
+    // Likely unwritable in CI/local as non-root.
+    const logger = await createLogger({ enabled: true, path: "/root/pi-kota-debug.jsonl" });
+
+    await expect(logger.log("mcp", "connected", { repo: "/tmp/repo" })).resolves.toBeUndefined();
+    await expect(logger.close()).resolves.toBeUndefined();
+  });
 });

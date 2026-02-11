@@ -11,22 +11,28 @@ const noopLogger: Logger = {
   async close() {},
 };
 
-export async function createLogger(opts: {
-  enabled: boolean;
-  path?: string;
-}): Promise<Logger> {
+export async function createLogger(opts: { enabled: boolean; path?: string }): Promise<Logger> {
   if (!opts.enabled || !opts.path) return noopLogger;
 
   const logPath = opts.path;
-  await mkdir(path.dirname(logPath), { recursive: true });
+  try {
+    await mkdir(path.dirname(logPath), { recursive: true });
+  } catch {
+    // If we can't create the directory, fall back to noop.
+    return noopLogger;
+  }
 
   return {
     async log(category: string, event: string, data?: Record<string, unknown>): Promise<void> {
-      const entry = JSON.stringify({ ts: new Date().toISOString(), category, event, data }) + "\n";
-      await appendFile(logPath, entry, "utf8");
+      try {
+        const entry = JSON.stringify({ ts: new Date().toISOString(), category, event, data }) + "\n";
+        await appendFile(logPath, entry, "utf8");
+      } catch {
+        // best-effort: never throw
+      }
     },
-    async close() {
-      // no-op for append logger
+    async close(): Promise<void> {
+      // no-op for append logger (but never throw)
     },
   };
 }
