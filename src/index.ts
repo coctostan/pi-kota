@@ -45,7 +45,27 @@ async function getHeadCommit(pi: ExtensionAPI, cwd: string): Promise<string | nu
 
 export default function (pi: ExtensionAPI) {
   const state = createInitialRuntimeState();
-  let logger: Logger = { async log() {}, async close() {} };
+
+  function makeSafeLogger(inner: Logger): Logger {
+    return {
+      async log(category: string, event: string, data?: Record<string, unknown>) {
+        try {
+          await inner.log(category, event, data);
+        } catch {
+          // best-effort
+        }
+      },
+      async close() {
+        try {
+          await inner.close();
+        } catch {
+          // best-effort
+        }
+      },
+    };
+  }
+
+  let logger: Logger = makeSafeLogger({ async log() {}, async close() {} });
 
   async function refreshConfig(ctx: { cwd: string }) {
     if (!state.repoRoot) {
@@ -91,7 +111,7 @@ export default function (pi: ExtensionAPI) {
       state.lastError = e instanceof Error ? e.message : String(e);
       state.mcp = null;
 
-      await logger.log("mcp", "connect-error", { error: state.lastError });
+      await logger.log("mcp", "connect_error", { error: state.lastError });
 
       if (ctx.hasUI) {
         ctx.ui.setStatus("pi-kota", `kota: error (${state.lastError})`);
@@ -118,14 +138,12 @@ export default function (pi: ExtensionAPI) {
     await ensureConnected(ctx);
     if (!state.config || !state.mcp) throw new Error("pi-kota: not connected");
 
-    await logger.log("tool", "call", {
-      toolName,
-      args: String(JSON.stringify(args) ?? "").slice(0, 200),
-    });
+    const t0 = Date.now();
+    await logger.log("tool", "call_start", { toolName });
 
     const release = state.inFlight.acquire();
     try {
-      return await callBudgeted({
+      const res = await callBudgeted({
         toolName,
         args,
         maxChars: 5000,
@@ -133,6 +151,14 @@ export default function (pi: ExtensionAPI) {
         callTool: (n, a) => state.mcp!.callTool(n, a),
         onTransportError: () => state.mcp?.disconnect(),
       });
+
+      await logger.log("tool", "call_end", {
+        toolName,
+        ok: res.ok,
+        durationMs: Date.now() - t0,
+      });
+
+      return res;
     } finally {
       release();
     }
@@ -192,10 +218,12 @@ export default function (pi: ExtensionAPI) {
     state.repoRoot = await detectRepoRoot(pi, ctx.cwd);
     await refreshConfig(ctx);
 
-    logger = await createLogger({
-      enabled: state.config?.log.enabled ?? false,
-      path: state.config?.log.path,
-    });
+    logger = makeSafeLogger(
+      await createLogger({
+        enabled: state.config?.log.enabled ?? false,
+        path: state.config?.log.path,
+      }),
+    );
 
     if (ctx.hasUI) {
       ctx.ui.setStatus("pi-kota", `kota: stopped | repo: ${state.repoRoot}`);
@@ -278,7 +306,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_shutdown", async () => {
     await state.inFlight.drain(3000);
-    await logger.close().catch(() => {});
+    await logger.close();
     await state.mcp?.close().catch(() => {});
     state.mcp = null;
   });
