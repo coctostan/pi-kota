@@ -176,8 +176,19 @@ export default function (pi: ExtensionAPI) {
 
   async function checkStaleness(ctx: { cwd: string; hasUI?: boolean; ui?: any }): Promise<void> {
     if (!state.indexedAtCommit || !state.repoRoot) return;
+
     const head = await getHeadCommit(pi, state.repoRoot);
+    if (!head) return;
+
+    // Warn at most once per distinct HEAD value.
+    if (state.stalenessWarnedForHead === head) return;
+
     if (!isIndexStale(state.indexedAtCommit, head)) return;
+
+    await logger.log("index", "stale_detected", {
+      indexedAtCommit: state.indexedAtCommit,
+      head,
+    });
 
     if (ctx.hasUI) {
       ctx.ui.notify(
@@ -185,6 +196,8 @@ export default function (pi: ExtensionAPI) {
         "warning",
       );
     }
+
+    state.stalenessWarnedForHead = head;
   }
 
   async function ensureRepoIndexed(ctx: { cwd: string; hasUI?: boolean; ui?: any }): Promise<void> {
@@ -351,6 +364,7 @@ export default function (pi: ExtensionAPI) {
         state.kotaStatus = "stopped";
         state.indexedRepoRoot = null;
         state.indexedAtCommit = null;
+        state.stalenessWarnedForHead = null;
         ctx.ui.notify("KotaDB connection reset. Next kota_* call will reconnect.", "info");
         return;
       }
