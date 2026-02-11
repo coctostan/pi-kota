@@ -425,12 +425,37 @@ export default function (pi: ExtensionAPI) {
       if (!state.config) throw new Error("pi-kota: config not loaded");
 
       const p = (params as { path?: string }).path ?? state.repoRoot ?? ctx.cwd;
-      const normalizedPath = normalizeRepoPath(p, ctx.cwd);
-      const res = await callKotaToolStrict(ctx, "index", { path: normalizedPath });
-      state.indexedRepoRoot = normalizedPath;
-      state.indexedAtCommit = await getHeadCommit(pi, state.repoRoot ?? ctx.cwd);
+      const targetPath = normalizeRepoPath(p, ctx.cwd);
 
-      return { content: [{ type: "text", text: res.text }], details: { indexed: true } };
+      let output = "";
+      await ensureIndexed({
+        state: {
+          get indexed() {
+            return state.indexedRepoRoot === targetPath;
+          },
+          set indexed(v: boolean) {
+            state.indexedRepoRoot = v ? targetPath : null;
+          },
+          get indexPromise() {
+            return state.indexPromise;
+          },
+          set indexPromise(p: Promise<void> | null) {
+            state.indexPromise = p;
+          },
+        },
+        confirmIndex: false,
+        confirm: async () => true,
+        index: async () => {
+          const res = await callKotaToolStrict(ctx, "index", { path: targetPath });
+          output = res.text;
+          state.indexedAtCommit = await getHeadCommit(pi, state.repoRoot ?? ctx.cwd);
+        },
+      });
+
+      return {
+        content: [{ type: "text", text: output || "Index complete." }],
+        details: { indexed: true },
+      };
     },
   });
 

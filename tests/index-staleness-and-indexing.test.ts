@@ -172,4 +172,52 @@ describe("index.ts staleness + indexing", () => {
 
     await api.fire("session_shutdown", {}, ctx);
   });
+
+  it("dedupes concurrent indexing between kota_index and other tool calls", async () => {
+    indexCalls = 0;
+    releaseIndexBarrier = undefined;
+
+    const api = createMockApi();
+    api.pi.exec = vi.fn(async (cmd: string, args: string[]) => {
+      if (cmd === "git" && args.join(" ") === "rev-parse --show-toplevel") {
+        return { code: 0, stdout: process.cwd() + "\n", stderr: "" };
+      }
+      if (cmd === "git" && args.join(" ") === "rev-parse HEAD") {
+        return { code: 0, stdout: "HEAD-1\n", stderr: "" };
+      }
+      return { code: 1, stdout: "", stderr: "" };
+    });
+
+    extension(api.pi as any);
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      hasUI: true,
+      ui: {
+        setStatus: vi.fn(),
+        notify: vi.fn(),
+        confirm: vi.fn(async () => true),
+      },
+    };
+
+    await api.fire("session_start", {}, ctx);
+
+    const kotaIndex = api.tools.get("kota_index");
+    const search = api.tools.get("kota_search");
+
+    const pIndex = kotaIndex.execute("id", {}, undefined, undefined, ctx);
+    // Let kota_index enter ensureIndexed and set indexPromise.
+    await Promise.resolve();
+
+    const pSearch = search.execute("id", { query: "a", output: "paths", limit: 1 }, undefined, undefined, ctx);
+
+    await waitForBarrier();
+    releaseIndexBarrier!();
+
+    await Promise.all([pIndex, pSearch]);
+
+    expect(indexCalls).toBe(1);
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
 });
