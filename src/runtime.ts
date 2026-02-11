@@ -46,6 +46,8 @@ export interface RuntimeState {
   repoRoot: string | null;
   indexedRepoRoot: string | null;
   indexedAtCommit: string | null;
+  indexPromise: Promise<void> | null;
+  stalenessWarnedForHead: string | null;
 
   kotaStatus: "stopped" | "starting" | "running" | "error";
   lastError: string | null;
@@ -67,6 +69,8 @@ export function createInitialRuntimeState(): RuntimeState {
     repoRoot: null,
     indexedRepoRoot: null,
     indexedAtCommit: null,
+    indexPromise: null,
+    stalenessWarnedForHead: null,
 
     kotaStatus: "stopped",
     lastError: null,

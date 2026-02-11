@@ -10,6 +10,12 @@ describe("runtime", () => {
     expect(s.indexedRepoRoot).toBe(null);
   });
 
+  it("tracks index promise + staleness warnings", () => {
+    const s = createInitialRuntimeState() as any;
+    expect(s.indexPromise).toBe(null);
+    expect(s.stalenessWarnedForHead).toBe(null);
+  });
+
   it("normalizes repo paths for stable comparisons", () => {
     expect(normalizeRepoPath("/tmp/repo/../repo/")).toBe(normalizeRepoPath("/tmp/repo"));
   });
