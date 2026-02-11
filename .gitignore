@@ -2,6 +2,9 @@ node_modules/
 .DS_Store
 *.log
 
+# Test artifacts
+coverage/
+
 # Optional local build artifacts
 /dist/
 
