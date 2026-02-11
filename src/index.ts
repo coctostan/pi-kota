@@ -22,6 +22,7 @@ import { shouldAutoInject } from "./autocontext.js";
 import { computePruneSettings, pruneContextMessages } from "./prune.js";
 import { shouldTruncateToolResult } from "./toolResult.js";
 import { writeBlob } from "./blobs.js";
+import { evictBlobs } from "./blobs-evict.js";
 import { truncateChars } from "./text.js";
 
 async function detectRepoRoot(pi: ExtensionAPI, cwd: string): Promise<string> {
@@ -331,7 +332,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("kota", {
-    description: "pi-kota commands (status/index/restart)",
+    description: "pi-kota commands (status/index/evict-blobs/reload-config/restart)",
     handler: async (args, ctx: any) => {
       const cmd = (args || "").trim();
       if (!ctx.hasUI) return;
@@ -406,6 +407,30 @@ export default function (pi: ExtensionAPI) {
         });
 
         ctx.ui.notify(output || "Index complete.", "info");
+        return;
+      }
+
+      if (cmd === "evict-blobs") {
+        if (!state.config) await refreshConfig(ctx);
+        if (!state.config) throw new Error("pi-kota: config not loaded");
+
+        if (!state.config.blobs.enabled) {
+          ctx.ui.notify("Blob cache is disabled (config.blobs.enabled=false).", "info");
+          return;
+        }
+
+        try {
+          const res = await evictBlobs({
+            dir: state.config.blobs.dir,
+            maxAgeDays: state.config.blobs.maxAgeDays,
+            maxSizeBytes: state.config.blobs.maxSizeBytes,
+          });
+
+          ctx.ui.notify(`Evicted ${res.removedCount} blobs (${res.removedBytes} bytes).`, "info");
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          ctx.ui.notify(`Blob eviction failed: ${msg}`, "warning");
+        }
         return;
       }
 

@@ -92,6 +92,13 @@ vi.mock("../src/kota/mcp.js", () => {
   return { KotaMcpClient, toTextContent };
 });
 
+const { evictSpy } = vi.hoisted(() => {
+  const evictSpy = vi.fn(async () => ({ removedCount: 2, removedBytes: 123 }));
+  return { evictSpy };
+});
+
+vi.mock("../src/blobs-evict.js", () => ({ evictBlobs: evictSpy }));
+
 import extension from "../src/index.js";
 import { createMockApi } from "./helpers/mock-api.js";
 
@@ -246,6 +253,38 @@ describe("index.ts branch coverage", () => {
 
     const notifyArgs = ctx.ui.notify.mock.calls.map((c: any[]) => String(c[0])).join("\n");
     expect(notifyArgs).toContain("mcp tools: (unknown/unavailable)");
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
+
+  it("/kota evict-blobs calls evictBlobs with config", async () => {
+    resetBehavior();
+    evictSpy.mockClear();
+
+    setConfig({
+      ...getConfig(),
+      blobs: {
+        enabled: true,
+        dir: "/tmp/blobs",
+        maxAgeDays: 7,
+        maxSizeBytes: 1234,
+      },
+    });
+
+    const api = createMockApi();
+    installGitExecMocks(api, "HEAD-1");
+    extension(api.pi as any);
+
+    const ctx = makeCtx();
+    await api.fire("session_start", {}, ctx);
+
+    const kotaCmd = api.commands.get("kota");
+    await kotaCmd.handler("evict-blobs", ctx);
+
+    expect(evictSpy).toHaveBeenCalledWith({ dir: "/tmp/blobs", maxAgeDays: 7, maxSizeBytes: 1234 });
+
+    const notifyArgs = ctx.ui.notify.mock.calls.map((c: any[]) => String(c[0])).join("\n");
+    expect(notifyArgs).toContain("Evicted");
 
     await api.fire("session_shutdown", {}, ctx);
   });
