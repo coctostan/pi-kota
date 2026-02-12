@@ -110,6 +110,12 @@ For reproducible installs, you can optionally pin to a git tag (or commit SHA), 
 pi install -l git:github.com/coctostan/pi-kota@v0.1.0
 ```
 
+After npm publish, you'll also be able to install by package name:
+
+```bash
+pi install pi-kota
+```
+
 You can also edit the settings file manually:
 
 ```json
