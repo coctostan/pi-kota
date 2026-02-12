@@ -80,14 +80,14 @@
 
 **Goal:** Make pi-kota installable via `pi install pi-kota`.
 
-- [ ] **Package manifest** — add pi package metadata to `package.json` (following pi package spec)
-- [ ] **Version bump** — `0.1.0` for first public release
-- [ ] **Entry point validation** — ensure `pi.extensions` path resolves correctly when installed globally
-- [ ] **Peer dependency ranges** — verify compat with current pi-coding-agent versions
+- [x] **Package manifest** — add pi package metadata to `package.json` (following pi package spec)
+- [x] **Version bump** — `0.1.0` for first public release
+- [x] **Entry point validation** — ensure `pi.extensions` path resolves correctly when installed globally
+- [x] **Peer dependency ranges** — verify compat with current pi-coding-agent versions
 - [ ] **Install smoke test** — `pi install pi-kota` from a clean environment, verify tools register
-- [ ] **Uninstall** — `pi uninstall pi-kota` cleans up cleanly
+- [x] **Uninstall** — `pi uninstall pi-kota` cleans up cleanly
 - [ ] **NPM publish** — publish to npm registry
-- [ ] **README install section** — update with `pi install pi-kota` as primary install method
-- [ ] **CHANGELOG.md** — create with 0.1.0 entry summarizing all features
+- [x] **README install section** — update with `pi install pi-kota` as primary install method
+- [x] **CHANGELOG.md** — create with 0.1.0 entry summarizing all features
 
 **Exit criteria:** `pi install pi-kota` works, tools appear, `/kota status` runs — zero manual setup beyond having `bun` installed.
