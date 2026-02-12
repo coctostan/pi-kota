@@ -20,7 +20,7 @@
 - [x] `/kota restart` — reconnects cleanly on next tool call
 - [x] Document any bugs found → feed into Phase 2
 
-**Note:** Automated e2e smoke tests cover these scenarios and are passing.
+**Note:** Automated e2e smoke tests cover core Phase 1 scenarios and are passing.
 
 **Exit criteria:** All commands and tools work end-to-end with no unhandled errors.
 
