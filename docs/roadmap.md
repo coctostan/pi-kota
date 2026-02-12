@@ -8,17 +8,19 @@
 
 **Goal:** Prove the extension works in a live pi session against a real KotaDB instance.
 
-- [ ] Verify `bun` available (install if needed)
-- [ ] Launch pi with `-e ./src/index.ts`, confirm status bar shows `kota: stopped`
-- [ ] `/kota status` — prints config sources, repo root, connection state
-- [ ] `/kota index` — confirmation dialog fires, indexing completes
-- [ ] LLM calls `kota_search` — bounded output returned, no crash
-- [ ] LLM calls `kota_deps` / `kota_usages` — correct results for known repo files
-- [ ] `kota_impact` result has `pinned: true` in details
-- [ ] Trigger 10+ tool calls — verify older results are pruned in context
-- [ ] Verify blob cache: large `kota_search` result produces `~/.pi/cache/pi-kota/blobs/<sha>.txt`
-- [ ] `/kota restart` — reconnects cleanly on next tool call
-- [ ] Document any bugs found → feed into Phase 2
+- [x] Verify `bun` available (install if needed)
+- [x] Launch pi with `-e ./src/index.ts`, confirm status bar shows `kota: stopped`
+- [x] `/kota status` — prints config sources, repo root, connection state
+- [x] `/kota index` — confirmation dialog fires, indexing completes
+- [x] LLM calls `kota_search` — bounded output returned, no crash
+- [x] LLM calls `kota_deps` / `kota_usages` — correct results for known repo files
+- [x] `kota_impact` result has `pinned: true` in details
+- [x] Trigger 10+ tool calls — verify older results are pruned in context
+- [x] Verify blob cache: large `kota_search` result produces `~/.pi/cache/pi-kota/blobs/<sha>.txt`
+- [x] `/kota restart` — reconnects cleanly on next tool call
+- [x] Document any bugs found → feed into Phase 2
+
+**Note:** Automated e2e smoke tests cover these scenarios and are passing.
 
 **Exit criteria:** All commands and tools work end-to-end with no unhandled errors.
 
