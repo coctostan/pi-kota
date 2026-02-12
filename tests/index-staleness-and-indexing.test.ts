@@ -12,7 +12,7 @@ vi.mock("../src/config.js", () => {
           args: [],
           connectTimeoutMs: 10_000,
           confirmIndex: false,
-          autoContext: "off",
+          autoContext: "always",
         },
         prune: { enabled: false, maxToolChars: 50, keepRecentTurns: 2, adaptive: false },
         blobs: { enabled: false, dir: "/tmp/blobs", maxAgeDays: 30, maxSizeBytes: 1024 * 1024 },
@@ -27,6 +27,11 @@ vi.mock("../src/config.js", () => {
 let indexCalls = 0;
 let releaseIndexBarrier: (() => void) | undefined;
 
+let connectBarrierEnabled = false;
+let releaseConnectBarrier: (() => void) | undefined;
+
+let taskContextTransportError = false;
+
 vi.mock("../src/kota/mcp.js", () => {
   function toTextContent(content: unknown[] | undefined): string {
     if (!Array.isArray(content)) return "";
@@ -39,13 +44,19 @@ vi.mock("../src/kota/mcp.js", () => {
   class KotaMcpClient {
     connected = false;
     async connect() {
+      if (connectBarrierEnabled) {
+        const barrier = new Promise<void>((resolve) => {
+          releaseConnectBarrier = () => resolve();
+        });
+        await barrier;
+      }
       this.connected = true;
     }
     isConnected() {
       return this.connected;
     }
     async listTools() {
-      return ["index_repository", "search"];
+      return ["index_repository", "search", "generate_task_context"];
     }
     async callTool(name: string, _args: any) {
       if (name === "index_repository") {
@@ -58,6 +69,12 @@ vi.mock("../src/kota/mcp.js", () => {
       }
       if (name === "search") {
         return { content: [{ type: "text", text: "ok" }], raw: { ok: true } };
+      }
+      if (name === "generate_task_context") {
+        if (taskContextTransportError) {
+          throw new Error("not connected");
+        }
+        return { content: [{ type: "text", text: "context ok" }], raw: { ok: true } };
       }
       return { content: [{ type: "text", text: "unknown" }], raw: {} };
     }
@@ -77,6 +94,14 @@ async function waitForBarrier(timeoutMs = 500) {
   const start = Date.now();
   while (!releaseIndexBarrier) {
     if (Date.now() - start > timeoutMs) throw new Error("index barrier not armed");
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
+
+async function waitForConnectBarrier(timeoutMs = 500) {
+  const start = Date.now();
+  while (!releaseConnectBarrier) {
+    if (Date.now() - start > timeoutMs) throw new Error("connect barrier not armed");
     await new Promise((r) => setTimeout(r, 10));
   }
 }
@@ -284,6 +309,120 @@ describe("index.ts staleness + indexing", () => {
     await api.fire("session_shutdown", {}, ctx);
   });
 
+  it("shows starting status while connecting", async () => {
+    indexCalls = 0;
+    releaseIndexBarrier = undefined;
+    connectBarrierEnabled = true;
+    releaseConnectBarrier = undefined;
+
+    const api = createMockApi();
+    api.pi.exec = vi.fn(async (cmd: string, args: string[]) => {
+      if (cmd === "git" && args.join(" ") === "rev-parse --show-toplevel") {
+        return { code: 0, stdout: process.cwd() + "\n", stderr: "" };
+      }
+      if (cmd === "git" && args.join(" ") === "rev-parse HEAD") {
+        return { code: 0, stdout: "HEAD-1\n", stderr: "" };
+      }
+      return { code: 1, stdout: "", stderr: "" };
+    });
+
+    extension(api.pi as any);
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      hasUI: true,
+      ui: {
+        setStatus: vi.fn(),
+        notify: vi.fn(),
+        confirm: vi.fn(async () => true),
+      },
+    };
+
+    await api.fire("session_start", {}, ctx);
+
+    // Trigger a connection attempt via before_agent_start.
+    const p = api.fire("before_agent_start", { prompt: "check src/index.ts" }, ctx);
+
+    await waitForConnectBarrier();
+
+    const statusSoFar = ctx.ui.setStatus.mock.calls.map((c: any[]) => String(c[1])).join("\n");
+    expect(statusSoFar).toContain("starting");
+
+    releaseConnectBarrier!();
+    await p;
+
+    connectBarrierEnabled = false;
+    releaseConnectBarrier = undefined;
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
+
+  it("does not crash when ui.theme is present but missing fg()", async () => {
+    const api = createMockApi();
+    api.pi.exec = vi.fn(async (cmd: string, args: string[]) => {
+      if (cmd === "git" && args.join(" ") === "rev-parse --show-toplevel") {
+        return { code: 0, stdout: process.cwd() + "\n", stderr: "" };
+      }
+      return { code: 1, stdout: "", stderr: "" };
+    });
+
+    extension(api.pi as any);
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      hasUI: true,
+      ui: {
+        theme: {},
+        setStatus: vi.fn(),
+        notify: vi.fn(),
+        confirm: vi.fn(async () => true),
+      },
+    };
+
+    await expect(api.fire("session_start", {}, ctx)).resolves.toBeTruthy();
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
+
+  it("does not update status when only the MCP connection toggles", async () => {
+    taskContextTransportError = false;
+
+    const api = createMockApi();
+    api.pi.exec = vi.fn(async (cmd: string, args: string[]) => {
+      if (cmd === "git" && args.join(" ") === "rev-parse --show-toplevel") {
+        return { code: 0, stdout: process.cwd() + "\n", stderr: "" };
+      }
+      return { code: 1, stdout: "", stderr: "" };
+    });
+
+    extension(api.pi as any);
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      hasUI: true,
+      ui: {
+        setStatus: vi.fn(),
+        notify: vi.fn(),
+        confirm: vi.fn(async () => true),
+      },
+    };
+
+    await api.fire("session_start", {}, ctx);
+
+    // First call succeeds to establish a connection.
+    await api.fire("before_agent_start", { prompt: "check src/index.ts" }, ctx);
+
+    const callsBefore = ctx.ui.setStatus.mock.calls.length;
+
+    // Now simulate a transport error: callBudgeted will disconnect the MCP client.
+    taskContextTransportError = true;
+    await api.fire("before_agent_start", { prompt: "check src/index.ts" }, ctx);
+
+    expect(ctx.ui.setStatus.mock.calls.length).toBe(callsBefore);
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
+
   it("updates status to indexed after indexing completes", async () => {
     indexCalls = 0;
     releaseIndexBarrier = undefined;
@@ -320,8 +459,9 @@ describe("index.ts staleness + indexing", () => {
     releaseIndexBarrier!();
     await pSearch;
 
-    const statusLines = ctx.ui.setStatus.mock.calls.map((c: any[]) => String(c[1])).join("\n");
-    expect(statusLines).toContain("indexed");
+    const lastStatus = String(ctx.ui.setStatus.mock.calls.at(-1)?.[1] ?? "");
+    expect(lastStatus).toContain("indexed");
+    expect(lastStatus).not.toContain("not indexed");
 
     await api.fire("session_shutdown", {}, ctx);
   });
