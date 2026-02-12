@@ -34,7 +34,7 @@ Six curated tools, all output-bounded by default:
 
 | Tool | What It Does |
 |------|-------------|
-| `kota_index` | Index the current repository (with confirmation prompt) |
+| `kota_index` | Index or re-index the current repository (no prompt) |
 | `kota_search` | Code search — `paths`, `compact`, or `snippet` output modes |
 | `kota_deps` | Dependency graph queries (dependents, dependencies, or both) |
 | `kota_usages` | Find all usages of a symbol across the repo |
@@ -46,7 +46,8 @@ Six curated tools, all output-bounded by default:
 | Command | Description |
 |---------|-------------|
 | `/kota status` | Show process state, repo root, index status, config sources |
-| `/kota index` | Trigger indexing (with confirmation) |
+| `/kota index` | Trigger indexing (asks for confirmation if enabled) |
+| `/kota evict-blobs` | Evict old/oversized blob-cache entries (best-effort) |
 | `/kota restart` | Reset KotaDB connection (next tool call reconnects) |
 | `/kota reload-config` | Reload config from disk |
 
@@ -145,7 +146,13 @@ Config files are layered — global defaults, then project overrides:
   },
   "blobs": {
     "enabled": true,
-    "dir": "~/.pi/cache/pi-kota/blobs"
+    "dir": "~/.pi/cache/pi-kota/blobs",
+    "maxAgeDays": 7,
+    "maxSizeBytes": 52428800
+  },
+  "log": {
+    "enabled": false,
+    "path": "~/.pi/cache/pi-kota/debug.jsonl"
   }
 }
 ```
@@ -155,12 +162,17 @@ Config files are layered — global defaults, then project overrides:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `kota.autoContext` | `"off"` | Auto-inject task context: `"off"`, `"onPaths"` (1–3 file paths in prompt), `"always"` |
-| `kota.confirmIndex` | `true` | Prompt before first indexing |
+| `kota.confirmIndex` | `true` | Prompt before indexing when running `/kota index` (and other confirmation-based flows). Note: `kota_index` tool does not prompt. |
 | `kota.connectTimeoutMs` | `10000` | Connection timeout in milliseconds for Kota MCP startup |
 | `prune.keepRecentTurns` | `2` | Turns to keep intact before pruning |
 | `prune.maxToolChars` | `1200` | Max chars per tool result before truncation |
 | `prune.adaptive` | `true` | Tighten pruning when context usage is high |
 | `blobs.enabled` | `true` | Save full truncated outputs to blob cache |
+| `blobs.dir` | `"~/.pi/cache/pi-kota/blobs"` | Blob cache directory |
+| `blobs.maxAgeDays` | `7` | Evict blobs older than this (used by `/kota evict-blobs`) |
+| `blobs.maxSizeBytes` | `52428800` | Evict oldest blobs until cache is under this size (used by `/kota evict-blobs`) |
+| `log.enabled` | `false` | Enable debug JSONL logging (best-effort, never crashes the extension) |
+| `log.path` | `"~/.pi/cache/pi-kota/debug.jsonl"` | Debug log file path |
 
 ---
 
@@ -195,7 +207,7 @@ src/
 
 ### Design Reference
 
-See [`docs/design.md`](docs/design.md) for the full design spec.
+See [`docs/design.md`](docs/design.md) for design background (draft; README + `src/*` are the source of truth for shipped behavior).
 
 ---
 

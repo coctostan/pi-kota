@@ -22,6 +22,12 @@ export interface PiKotaConfig {
   blobs: {
     enabled: boolean;
     dir: string;
+    maxAgeDays: number;
+    maxSizeBytes: number;
+  };
+  log: {
+    enabled: boolean;
+    path: string;
   };
 }
 
@@ -43,6 +49,12 @@ export const DEFAULT_CONFIG: PiKotaConfig = {
   blobs: {
     enabled: true,
     dir: "~/.pi/cache/pi-kota/blobs",
+    maxAgeDays: 7,
+    maxSizeBytes: 50 * 1024 * 1024,
+  },
+  log: {
+    enabled: false,
+    path: "~/.pi/cache/pi-kota/debug.jsonl",
   },
 };
 
@@ -102,6 +114,7 @@ export function sanitizeConfig(config: unknown, fallback: PiKotaConfig = DEFAULT
   const kota = isObject(root.kota) ? root.kota : {};
   const prune = isObject(root.prune) ? root.prune : {};
   const blobs = isObject(root.blobs) ? root.blobs : {};
+  const log = isObject(root.log) ? root.log : {};
 
   const autoContext =
     kota.autoContext === "off" || kota.autoContext === "onPaths" || kota.autoContext === "always"
@@ -128,6 +141,12 @@ export function sanitizeConfig(config: unknown, fallback: PiKotaConfig = DEFAULT
     blobs: {
       enabled: sanitizeBoolean(blobs.enabled, fallback.blobs.enabled),
       dir: sanitizeString(blobs.dir, fallback.blobs.dir),
+      maxAgeDays: sanitizeNumber(blobs.maxAgeDays, fallback.blobs.maxAgeDays, 1),
+      maxSizeBytes: sanitizeNumber(blobs.maxSizeBytes, fallback.blobs.maxSizeBytes, 0),
+    },
+    log: {
+      enabled: sanitizeBoolean(log.enabled, fallback.log.enabled),
+      path: sanitizeString(log.path, fallback.log.path),
     },
   };
 }
@@ -178,6 +197,10 @@ export async function loadConfig(opts?: {
     blobs: {
       ...config.blobs,
       dir: expandTilde(config.blobs.dir, homeDir),
+    },
+    log: {
+      ...config.log,
+      path: expandTilde(config.log.path, homeDir),
     },
   };
 

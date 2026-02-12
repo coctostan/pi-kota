@@ -277,3 +277,62 @@ describe("e2e smoke (prune + blobs)", () => {
     }
   });
 });
+
+describe("e2e smoke (wiring details)", () => {
+  it("registers handlers for all lifecycle events", () => {
+    const api = createMockApi();
+    extension(api.pi as any);
+
+    expect(api.handlers.has("session_start")).toBe(true);
+    expect(api.handlers.has("session_shutdown")).toBe(true);
+    expect(api.handlers.has("before_agent_start")).toBe(true);
+    expect(api.handlers.has("context")).toBe(true);
+    expect(api.handlers.has("tool_result")).toBe(true);
+  });
+
+  it("tool_result handler ignores non-kota tools", async () => {
+    const api = createMockApi();
+    extension(api.pi as any);
+
+    await setupE2eConfig();
+    const ctx = makeCtx({ cwd: repoRoot });
+    await api.fire("session_start", {}, ctx);
+
+    const [res] = await api.fire(
+      "tool_result",
+      {
+        toolName: "read",
+        content: [{ type: "text", text: "x".repeat(10000) }],
+        details: {},
+      },
+      ctx,
+    );
+
+    expect(res).toBeUndefined();
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
+
+  it("tool_result handler does not truncate small kota output", async () => {
+    const api = createMockApi();
+    extension(api.pi as any);
+
+    await setupE2eConfig();
+    const ctx = makeCtx({ cwd: repoRoot });
+    await api.fire("session_start", {}, ctx);
+
+    const [res] = await api.fire(
+      "tool_result",
+      {
+        toolName: "kota_search",
+        content: [{ type: "text", text: "short" }],
+        details: {},
+      },
+      ctx,
+    );
+
+    expect(res).toBeUndefined();
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
+});

@@ -36,3 +36,137 @@ describe("ensureIndexed", () => {
     ).rejects.toThrow("Indexing cancelled by user");
   });
 });
+
+describe("ensureIndexed edge cases", () => {
+  it("propagates error when index() throws", async () => {
+    const state = { indexed: false };
+    await expect(
+      ensureIndexed({
+        state,
+        confirmIndex: false,
+        confirm: vi.fn(async () => true),
+        index: vi.fn(async () => {
+          throw new Error("MCP connection lost");
+        }),
+      }),
+    ).rejects.toThrow("MCP connection lost");
+
+    expect(state.indexed).toBe(false);
+  });
+
+  it("does not double-index on repeated calls", async () => {
+    const state = { indexed: false };
+    let indexCallCount = 0;
+    const index = vi.fn(async () => {
+      indexCallCount++;
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    await ensureIndexed({
+      state,
+      confirmIndex: false,
+      confirm: vi.fn(async () => true),
+      index,
+    });
+
+    await ensureIndexed({
+      state,
+      confirmIndex: false,
+      confirm: vi.fn(async () => true),
+      index,
+    });
+
+    expect(indexCallCount).toBe(1);
+  });
+
+  it("skips confirm when confirmIndex is false", async () => {
+    const state = { indexed: false };
+    const confirm = vi.fn(async () => true);
+    const index = vi.fn(async () => {});
+
+    await ensureIndexed({
+      state,
+      confirmIndex: false,
+      confirm,
+      index,
+    });
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(index).toHaveBeenCalledTimes(1);
+  });
+
+  it("dedupes concurrent calls (index runs once)", async () => {
+    const state: { indexed: boolean; indexPromise: Promise<void> | null } = {
+      indexed: false,
+      indexPromise: null,
+    };
+
+    let indexCalls = 0;
+    let releaseBarrier!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      releaseBarrier = () => resolve();
+    });
+
+    const index = vi.fn(async () => {
+      indexCalls++;
+      await barrier;
+    });
+
+    const p1 = ensureIndexed({
+      state,
+      confirmIndex: false,
+      confirm: vi.fn(async () => true),
+      index,
+    });
+
+    const p2 = ensureIndexed({
+      state,
+      confirmIndex: false,
+      confirm: vi.fn(async () => true),
+      index,
+    });
+
+    // Let both callers enter ensureIndexed before releasing.
+    await Promise.resolve();
+    releaseBarrier();
+
+    await Promise.all([p1, p2]);
+
+    expect(indexCalls).toBe(1);
+    expect(index).toHaveBeenCalledTimes(1);
+    expect(state.indexed).toBe(true);
+  });
+
+  it("awaits in-flight indexPromise even if already indexed", async () => {
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      release = () => resolve();
+    });
+
+    const state: { indexed: boolean; indexPromise: Promise<void> | null } = {
+      indexed: true,
+      indexPromise: barrier,
+    };
+
+    const index = vi.fn(async () => {});
+
+    const p = ensureIndexed({
+      state,
+      confirmIndex: false,
+      confirm: vi.fn(async () => true),
+      index,
+    });
+
+    const raced = await Promise.race([
+      p.then(() => "done" as const),
+      new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 25)),
+    ]);
+
+    expect(raced).toBe("timeout");
+
+    release();
+    await p;
+
+    expect(index).not.toHaveBeenCalled();
+  });
+});

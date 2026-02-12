@@ -16,6 +16,11 @@ function isWindowsDrivePrefixed(text: string, tokenStartIndex: number): boolean 
   return /^[A-Za-z]:\/$/.test(text.slice(tokenStartIndex - 3, tokenStartIndex));
 }
 
+function hasParentTraversalPrefix(text: string, tokenStartIndex: number): boolean {
+  if (tokenStartIndex < 3) return false;
+  return text.slice(tokenStartIndex - 3, tokenStartIndex) === "../";
+}
+
 export function extractFilePaths(text: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -26,6 +31,7 @@ export function extractFilePaths(text: string): string[] {
 
     const tokenStartIndex = m.index ?? -1;
     if (tokenStartIndex >= 0 && isWindowsDrivePrefixed(text, tokenStartIndex)) continue;
+    if (tokenStartIndex >= 0 && hasParentTraversalPrefix(text, tokenStartIndex)) continue;
     if (!isRepoRelativePath(token)) continue;
     if (seen.has(token)) continue;
 

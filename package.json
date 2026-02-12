@@ -5,10 +5,13 @@
   "type": "module",
   "description": "KotaDB thin wrapper + context pruning extension for pi",
   "pi": {
-    "extensions": ["./src/index.ts"]
+    "extensions": [
+      "./src/index.ts"
+    ]
   },
   "scripts": {
     "test": "vitest run",
+    "test:cov": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "vitest run -c vitest.config.e2e.ts",
     "typecheck": "tsc --noEmit",
@@ -20,6 +23,7 @@
     "@sinclair/typebox": "^0.34.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
     "typescript": "^5.5.0",
     "vitest": "^2.1.0"
   }

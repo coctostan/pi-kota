@@ -28,14 +28,14 @@
 
 **Goal:** Make the MCP connection resilient and degrade gracefully under real-world conditions.
 
-- [ ] **MCP reconnection** — detect broken pipe / unexpected close, auto-reconnect on next tool call
-- [ ] **Startup timeout** — if KotaDB takes >10s to connect, surface a clear error + retry path
-- [ ] **Graceful shutdown** — `session_shutdown` handler waits for in-flight MCP calls before closing
-- [ ] **Partial failure** — if one MCP call fails mid-session, don't poison the whole connection
-- [ ] **Config validation** — reject malformed `pi-kota.json` with actionable error messages (TypeBox validation)
-- [ ] **Blob cache cleanup** — age-based eviction (configurable max age / max size)
-- [ ] **Index staleness** — detect repo changes since last index, suggest re-index
-- [ ] **Logging** — structured debug logging (opt-in via config) for diagnosing MCP issues
+- [x] **MCP reconnection** — detect broken pipe / unexpected close, auto-reconnect on next tool call
+- [x] **Startup timeout** — if KotaDB takes >10s to connect, surface a clear error + retry path
+- [x] **Graceful shutdown** — `session_shutdown` handler waits for in-flight MCP calls before closing
+- [x] **Partial failure** — if one MCP call fails mid-session, don't poison the whole connection
+- [x] **Config validation** — reject malformed `pi-kota.json` with actionable error messages (TypeBox validation)
+- [x] **Blob cache cleanup** — age-based eviction (configurable max age / max size)
+- [x] **Index staleness** — detect repo changes since last index, suggest re-index
+- [x] **Logging** — structured debug logging (opt-in via config) for diagnosing MCP issues
 
 **Exit criteria:** Extension survives KotaDB crash, network hiccup, bad config, and long-running sessions without manual intervention.
 
@@ -45,15 +45,15 @@
 
 **Goal:** Cover integration paths and edge cases that unit tests don't reach.
 
-- [ ] **`index.ts` wiring tests** — mock `ExtensionAPI`, verify event handlers register and fire correctly
-- [ ] **Pruning edge cases** — empty messages array, all-user messages, single turn, messages with no text blocks
-- [ ] **Config edge cases** — missing fields, extra fields, invalid types, nested override merge conflicts
-- [ ] **Blob writer edge cases** — permission errors, disk full simulation, concurrent writes to same hash
-- [ ] **`callBudgeted` edge cases** — MCP returns empty content, non-text content blocks, huge error messages
-- [ ] **`ensureIndexed` edge cases** — confirm returns false, index throws, double-call race condition
-- [ ] **`extractFilePaths` edge cases** — deeply nested paths, paths with special chars, Windows-style paths in mixed content
-- [ ] **AutoContext integration** — `shouldAutoInject` + `extractFilePaths` combined with various prompt shapes
-- [ ] **Adaptive pruning** — verify `computePruneSettings` thresholds produce correct tightened values at boundary token counts
+- [x] **`index.ts` wiring tests** — mock `ExtensionAPI`, verify event handlers register and fire correctly
+- [x] **Pruning edge cases** — empty messages array, all-user messages, single turn, messages with no text blocks
+- [x] **Config edge cases** — missing fields, extra fields, invalid types, nested override merge conflicts
+- [x] **Blob writer edge cases** — permission errors, disk full simulation, concurrent writes to same hash
+- [x] **`callBudgeted` edge cases** — MCP returns empty content, non-text content blocks, huge error messages
+- [x] **`ensureIndexed` edge cases** — confirm returns false, index throws, double-call race condition
+- [x] **`extractFilePaths` edge cases** — deeply nested paths, paths with special chars, Windows-style paths in mixed content
+- [x] **AutoContext integration** — `shouldAutoInject` + `extractFilePaths` combined with various prompt shapes
+- [x] **Adaptive pruning** — verify `computePruneSettings` thresholds produce correct tightened values at boundary token counts
 
 **Exit criteria:** ≥90% line coverage on `src/`, all edge cases from smoke test bugs covered.
 
