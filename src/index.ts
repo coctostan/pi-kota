@@ -402,6 +402,7 @@ export default function (pi: ExtensionAPI) {
         state.indexedRepoRoot = null;
         state.indexedAtCommit = null;
         state.stalenessWarnedForHead = null;
+        updateStatus(ctx);
         ctx.ui.notify("KotaDB connection reset. Next kota_* call will reconnect.", "info");
         return;
       }
@@ -437,6 +438,7 @@ export default function (pi: ExtensionAPI) {
           },
         });
 
+        updateStatus(ctx);
         ctx.ui.notify(output || "Index complete.", "info");
         return;
       }
