@@ -91,9 +91,13 @@ Install Bun and ensure your shell PATH includes Bun's bin directory (usually `~/
 
 ## 🚀 Install
 
-### As a pi package
+### As a pi package (recommended)
 
-Add to `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (global):
+```bash
+pi install git:github.com/coctostan/pi-kota
+```
+
+This adds the package to `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (global). You can also edit the file manually:
 
 ```json
 {
@@ -101,19 +105,23 @@ Add to `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (global):
 }
 ```
 
-### Manual (project-local)
+### Local development
 
-Point pi at the extension entry point in `.pi/settings.json`:
+Clone the repo and install dependencies:
+
+```bash
+git clone https://github.com/coctostan/pi-kota.git
+cd pi-kota
+npm install
+```
+
+Then point pi at the extension entry point from the project where you want to use it (e.g. in `.pi/settings.json`):
 
 ```json
 {
-  "extensions": ["./path/to/pi-kota/src/index.ts"]
+  "extensions": ["../pi-kota/src/index.ts"]
 }
 ```
-
-### Manual (global)
-
-Symlink or copy the extension to `~/.pi/agent/extensions/`.
 
 ---
 
