@@ -69,7 +69,7 @@
 - [x] **Live updates** — `updateStatus()` called on connection change, index completion, errors
 - [ ] **Index progress** — KotaDB doesn't surface progress events; skip for v0.1.0
 - [x] **Error indicator** — error state shows red icon + truncated error message
-- [x] **Click/command integration** — `/kota status` still works for full detail
+- [x] **Command integration** — `/kota status` still works for full detail
 - [x] **Minimal footprint** — single status line, no flicker
 
 **Exit criteria:** User can glance at the footer and know kota's state at all times.
