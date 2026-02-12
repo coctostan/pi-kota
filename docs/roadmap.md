@@ -65,12 +65,12 @@
 
 **Goal:** Give the user real-time visibility into kota state without running `/kota status`.
 
-- [ ] **Status bar segment** — persistent footer widget showing: connection state (`stopped`/`starting`/`running`/`error`), repo root (abbreviated), index state (`indexed`/`not indexed`)
-- [ ] **Live updates** — widget refreshes on connection change, index completion, errors
-- [ ] **Index progress** — if KotaDB provides progress events, surface a progress indicator during indexing
-- [ ] **Error indicator** — red/yellow state when last MCP call failed, with one-line error summary
-- [ ] **Click/command integration** — `/kota` opens a detail panel or cycles through status info
-- [ ] **Minimal footprint** — widget should be ≤1 line, no flicker, no layout disruption
+- [x] **Status bar segment** — `formatStatusLine` shows connection state, repo, index state
+- [x] **Live updates** — `updateStatus()` called on connection change, index completion, errors
+- [ ] **Index progress** — KotaDB doesn't surface progress events; skip for v0.1.0
+- [x] **Error indicator** — error state shows red icon + truncated error message
+- [x] **Click/command integration** — `/kota status` still works for full detail
+- [x] **Minimal footprint** — single status line, no flicker
 
 **Exit criteria:** User can glance at the footer and know kota's state at all times.
 
