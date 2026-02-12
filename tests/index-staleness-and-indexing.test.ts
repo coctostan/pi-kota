@@ -283,4 +283,46 @@ describe("index.ts staleness + indexing", () => {
 
     await api.fire("session_shutdown", {}, ctx);
   });
+
+  it("updates status to indexed after indexing completes", async () => {
+    indexCalls = 0;
+    releaseIndexBarrier = undefined;
+
+    const api = createMockApi();
+    api.pi.exec = vi.fn(async (cmd: string, args: string[]) => {
+      if (cmd === "git" && args.join(" ") === "rev-parse --show-toplevel") {
+        return { code: 0, stdout: process.cwd() + "\n", stderr: "" };
+      }
+      if (cmd === "git" && args.join(" ") === "rev-parse HEAD") {
+        return { code: 0, stdout: "HEAD-1\n", stderr: "" };
+      }
+      return { code: 1, stdout: "", stderr: "" };
+    });
+
+    extension(api.pi as any);
+
+    const ctx: any = {
+      cwd: process.cwd(),
+      hasUI: true,
+      ui: {
+        setStatus: vi.fn(),
+        notify: vi.fn(),
+        confirm: vi.fn(async () => true),
+      },
+    };
+
+    await api.fire("session_start", {}, ctx);
+
+    const search = api.tools.get("kota_search");
+    const pSearch = search.execute("id", { query: "a", output: "paths", limit: 1 }, undefined, undefined, ctx);
+
+    await waitForBarrier();
+    releaseIndexBarrier!();
+    await pSearch;
+
+    const statusLines = ctx.ui.setStatus.mock.calls.map((c: any[]) => String(c[1])).join("\n");
+    expect(statusLines).toContain("indexed");
+
+    await api.fire("session_shutdown", {}, ctx);
+  });
 });

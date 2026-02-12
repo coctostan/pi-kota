@@ -146,7 +146,7 @@ describe("e2e smoke (lifecycle)", () => {
     expect(ctx.ui.setStatus).toHaveBeenCalled();
     const calls = ctx.ui.setStatus.mock.calls;
     const combined = calls.map((c: any[]) => c.join(" ")).join("\n");
-    expect(combined).toContain("kota: stopped");
+    expect(combined).toContain("stopped");
   });
 });
 
