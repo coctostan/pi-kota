@@ -91,9 +91,32 @@ Install Bun and ensure your shell PATH includes Bun's bin directory (usually `~/
 
 ## 🚀 Install
 
-### As a pi package
+### As a pi package (recommended)
 
-Add to `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (global):
+```bash
+# Global install (default) — available in all pi projects
+pi install git:github.com/coctostan/pi-kota
+
+# Project-local install — only for the current repo (writes to .pi/settings.json)
+pi install -l git:github.com/coctostan/pi-kota
+```
+
+By default, `pi install` is **global** and adds the package to `~/.pi/agent/settings.json`.
+Use `-l` for a **project-local** install (adds it to `.pi/settings.json`).
+
+For reproducible installs, you can optionally pin to a git tag (or commit SHA), for example:
+
+```bash
+pi install -l git:github.com/coctostan/pi-kota@v0.1.0
+```
+
+After npm publish, you'll also be able to install by package name:
+
+```bash
+pi install pi-kota
+```
+
+You can also edit the settings file manually:
 
 ```json
 {
@@ -101,19 +124,23 @@ Add to `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (global):
 }
 ```
 
-### Manual (project-local)
+### Local development
 
-Point pi at the extension entry point in `.pi/settings.json`:
+Clone the repo and install dependencies:
+
+```bash
+git clone https://github.com/coctostan/pi-kota.git
+cd pi-kota
+npm install
+```
+
+Then point pi at the extension entry point from the project where you want to use it (e.g. in `.pi/settings.json`):
 
 ```json
 {
-  "extensions": ["./path/to/pi-kota/src/index.ts"]
+  "extensions": ["../pi-kota/src/index.ts"]
 }
 ```
-
-### Manual (global)
-
-Symlink or copy the extension to `~/.pi/agent/extensions/`.
 
 ---
 

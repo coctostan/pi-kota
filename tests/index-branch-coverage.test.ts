@@ -196,7 +196,7 @@ describe("index.ts branch coverage", () => {
     // ensureConnected error path updates status.
     expect(ctx.ui.setStatus).toHaveBeenCalled();
     const statusStrings = ctx.ui.setStatus.mock.calls.map((c: any[]) => String(c[1]));
-    expect(statusStrings.join("\n")).toContain("kota: error");
+    expect(statusStrings.join("\n")).toContain("error");
 
     await api.fire("session_shutdown", {}, ctx);
   });

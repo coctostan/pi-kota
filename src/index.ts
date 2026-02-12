@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { loadConfig } from "./config.js";
 import { createInitialRuntimeState, normalizeRepoPath } from "./runtime.js";
+import { formatStatusLine } from "./status.js";
 
 import { KotaMcpClient } from "./kota/mcp.js";
 import { callBudgeted } from "./kota/tools.js";
@@ -47,6 +48,26 @@ async function getHeadCommit(pi: ExtensionAPI, cwd: string): Promise<string | nu
 export default function (pi: ExtensionAPI) {
   const state = createInitialRuntimeState();
 
+  function getRenderedStatusInfo() {
+    return {
+      kotaStatus: state.kotaStatus,
+      repoRoot: state.repoRoot,
+      indexed: !!(state.repoRoot && state.indexedRepoRoot === normalizeRepoPath(state.repoRoot)),
+      lastError: state.lastError,
+    };
+  }
+
+  function updateStatus(ctx: { cwd: string; hasUI?: boolean; ui?: any }) {
+    if (!ctx.hasUI) return;
+
+    const fg =
+      typeof ctx.ui?.theme?.fg === "function"
+        ? ctx.ui.theme.fg.bind(ctx.ui.theme)
+        : (_style: string, text: string) => text;
+
+    ctx.ui.setStatus("pi-kota", formatStatusLine(getRenderedStatusInfo(), { fg }));
+  }
+
   function makeSafeLogger(inner: Logger): Logger {
     return {
       async log(category: string, event: string, data?: Record<string, unknown>) {
@@ -88,6 +109,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     state.kotaStatus = "starting";
+    updateStatus(ctx);
 
     const client = new KotaMcpClient({
       command: state.config.kota.command,
@@ -104,9 +126,7 @@ export default function (pi: ExtensionAPI) {
 
       await logger.log("mcp", "connected", { repo: state.repoRoot ?? "(unknown)" });
 
-      if (ctx.hasUI) {
-        ctx.ui.setStatus("pi-kota", `kota: running | repo: ${state.repoRoot}`);
-      }
+      updateStatus(ctx);
     } catch (e: unknown) {
       state.kotaStatus = "error";
       state.lastError = e instanceof Error ? e.message : String(e);
@@ -114,9 +134,7 @@ export default function (pi: ExtensionAPI) {
 
       await logger.log("mcp", "connect_error", { error: state.lastError });
 
-      if (ctx.hasUI) {
-        ctx.ui.setStatus("pi-kota", `kota: error (${state.lastError})`);
-      }
+      updateStatus(ctx);
 
       throw e;
     }
@@ -138,6 +156,8 @@ export default function (pi: ExtensionAPI) {
   ): Promise<{ text: string; raw: unknown; ok: boolean }> {
     await ensureConnected(ctx);
     if (!state.config || !state.mcp) throw new Error("pi-kota: not connected");
+
+    const before = getRenderedStatusInfo();
 
     const t0 = Date.now();
     await logger.log("tool", "call_start", { toolName });
@@ -161,6 +181,16 @@ export default function (pi: ExtensionAPI) {
 
       return res;
     } finally {
+      const after = getRenderedStatusInfo();
+      if (
+        before.kotaStatus !== after.kotaStatus ||
+        before.repoRoot !== after.repoRoot ||
+        before.indexed !== after.indexed ||
+        before.lastError !== after.lastError
+      ) {
+        updateStatus(ctx);
+      }
+
       release();
     }
   }
@@ -232,6 +262,8 @@ export default function (pi: ExtensionAPI) {
     if (wasAlreadyIndexed) {
       await checkStaleness(ctx);
     }
+
+    updateStatus(ctx);
   }
 
   pi.on("session_start", async (_event, ctx: any) => {
@@ -245,9 +277,7 @@ export default function (pi: ExtensionAPI) {
       }),
     );
 
-    if (ctx.hasUI) {
-      ctx.ui.setStatus("pi-kota", `kota: stopped | repo: ${state.repoRoot}`);
-    }
+    updateStatus(ctx);
   });
 
   pi.on("before_agent_start", async (event: any, ctx: any) => {
@@ -372,6 +402,7 @@ export default function (pi: ExtensionAPI) {
         state.indexedRepoRoot = null;
         state.indexedAtCommit = null;
         state.stalenessWarnedForHead = null;
+        updateStatus(ctx);
         ctx.ui.notify("KotaDB connection reset. Next kota_* call will reconnect.", "info");
         return;
       }
@@ -407,6 +438,7 @@ export default function (pi: ExtensionAPI) {
           },
         });
 
+        updateStatus(ctx);
         ctx.ui.notify(output || "Index complete.", "info");
         return;
       }

@@ -1,14 +1,25 @@
 {
   "name": "pi-kota",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "KotaDB thin wrapper + context pruning extension for pi",
-  "pi": {
-    "extensions": [
-      "./src/index.ts"
-    ]
+  "keywords": ["pi-package"],
+  "license": "MIT",
+  "author": "coctostan <coctostan@users.noreply.github.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coctostan/pi-kota"
   },
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
+  "files": [
+    "src/",
+    "scripts/",
+    "docs/assets/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
@@ -17,12 +28,16 @@
     "typecheck": "tsc --noEmit",
     "postinstall": "node scripts/check-bun.js"
   },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@sinclair/typebox": "*"
+  },
   "dependencies": {
-    "@mariozechner/pi-coding-agent": "^0.52.9",
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "@sinclair/typebox": "^0.34.0"
+    "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {
+    "@mariozechner/pi-coding-agent": "^0.52.9",
+    "@sinclair/typebox": "^0.34.0",
     "@vitest/coverage-v8": "^2.1.9",
     "typescript": "^5.5.0",
     "vitest": "^2.1.0"

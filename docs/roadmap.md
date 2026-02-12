@@ -8,17 +8,19 @@
 
 **Goal:** Prove the extension works in a live pi session against a real KotaDB instance.
 
-- [ ] Verify `bun` available (install if needed)
-- [ ] Launch pi with `-e ./src/index.ts`, confirm status bar shows `kota: stopped`
-- [ ] `/kota status` — prints config sources, repo root, connection state
-- [ ] `/kota index` — confirmation dialog fires, indexing completes
-- [ ] LLM calls `kota_search` — bounded output returned, no crash
-- [ ] LLM calls `kota_deps` / `kota_usages` — correct results for known repo files
-- [ ] `kota_impact` result has `pinned: true` in details
-- [ ] Trigger 10+ tool calls — verify older results are pruned in context
-- [ ] Verify blob cache: large `kota_search` result produces `~/.pi/cache/pi-kota/blobs/<sha>.txt`
-- [ ] `/kota restart` — reconnects cleanly on next tool call
-- [ ] Document any bugs found → feed into Phase 2
+- [x] Verify `bun` available (install if needed)
+- [x] Launch pi with `-e ./src/index.ts`, confirm status bar shows `kota: stopped`
+- [x] `/kota status` — prints config sources, repo root, connection state
+- [x] `/kota index` — confirmation dialog fires, indexing completes
+- [x] LLM calls `kota_search` — bounded output returned, no crash
+- [x] LLM calls `kota_deps` / `kota_usages` — correct results for known repo files
+- [x] `kota_impact` result has `pinned: true` in details
+- [x] Trigger 10+ tool calls — verify older results are pruned in context
+- [x] Verify blob cache: large `kota_search` result produces `~/.pi/cache/pi-kota/blobs/<sha>.txt`
+- [x] `/kota restart` — reconnects cleanly on next tool call
+- [x] Document any bugs found → feed into Phase 2
+
+**Note:** Automated e2e smoke tests cover core Phase 1 scenarios and are passing.
 
 **Exit criteria:** All commands and tools work end-to-end with no unhandled errors.
 
@@ -63,12 +65,12 @@
 
 **Goal:** Give the user real-time visibility into kota state without running `/kota status`.
 
-- [ ] **Status bar segment** — persistent footer widget showing: connection state (`stopped`/`starting`/`running`/`error`), repo root (abbreviated), index state (`indexed`/`not indexed`)
-- [ ] **Live updates** — widget refreshes on connection change, index completion, errors
-- [ ] **Index progress** — if KotaDB provides progress events, surface a progress indicator during indexing
-- [ ] **Error indicator** — red/yellow state when last MCP call failed, with one-line error summary
-- [ ] **Click/command integration** — `/kota` opens a detail panel or cycles through status info
-- [ ] **Minimal footprint** — widget should be ≤1 line, no flicker, no layout disruption
+- [x] **Status bar segment** — `formatStatusLine` shows connection state, repo, index state
+- [x] **Live updates** — `updateStatus()` called on connection change, index completion, errors
+- [ ] **Index progress** — KotaDB doesn't surface progress events; skip for v0.1.0
+- [x] **Error indicator** — error state shows red icon + truncated error message
+- [x] **Command integration** — `/kota status` still works for full detail
+- [x] **Minimal footprint** — single status line, no flicker
 
 **Exit criteria:** User can glance at the footer and know kota's state at all times.
 
@@ -76,16 +78,16 @@
 
 ## Phase 5 — Package & Publish
 
-**Goal:** Make pi-kota installable via `pi install pi-kota`.
+**Goal:** Prepare pi-kota for publishing as a pi package (pre-npm); until then, install via `pi install git:github.com/coctostan/pi-kota` (switch to `pi install pi-kota` after publish).
 
-- [ ] **Package manifest** — add pi package metadata to `package.json` (following pi package spec)
-- [ ] **Version bump** — `0.1.0` for first public release
-- [ ] **Entry point validation** — ensure `pi.extensions` path resolves correctly when installed globally
-- [ ] **Peer dependency ranges** — verify compat with current pi-coding-agent versions
-- [ ] **Install smoke test** — `pi install pi-kota` from a clean environment, verify tools register
-- [ ] **Uninstall** — `pi uninstall pi-kota` cleans up cleanly
+- [x] **Package manifest** — add pi package metadata to `package.json` (following pi package spec)
+- [x] **Version bump** — `0.1.0` for first public release
+- [x] **Entry point validation** — ensure `pi.extensions` path resolves correctly when installed globally
+- [x] **Peer dependency declarations** — confirm peer deps are declared (currently permissive via `*`)
+- [ ] **Install smoke test** — `pi install git:github.com/coctostan/pi-kota` from a clean environment, verify tools register (after publish: `pi install pi-kota`)
+- [x] **Uninstall** — `pi uninstall pi-kota` cleans up cleanly
 - [ ] **NPM publish** — publish to npm registry
-- [ ] **README install section** — update with `pi install pi-kota` as primary install method
-- [ ] **CHANGELOG.md** — create with 0.1.0 entry summarizing all features
+- [x] **README install section** — update with `pi install git:github.com/coctostan/pi-kota` as primary install method (switch to `pi install pi-kota` after publish)
+- [x] **CHANGELOG.md** — create with 0.1.0 entry summarizing all features
 
-**Exit criteria:** `pi install pi-kota` works, tools appear, `/kota status` runs — zero manual setup beyond having `bun` installed.
+**Exit criteria:** From a clean environment, `pi install git:github.com/coctostan/pi-kota` works (and after npm publish, `pi install pi-kota` works); tools appear, `/kota status` runs — zero manual setup beyond having `bun` installed.
