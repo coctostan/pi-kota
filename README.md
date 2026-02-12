@@ -94,10 +94,23 @@ Install Bun and ensure your shell PATH includes Bun's bin directory (usually `~/
 ### As a pi package (recommended)
 
 ```bash
+# Global install (default) — available in all pi projects
 pi install git:github.com/coctostan/pi-kota
+
+# Project-local install — only for the current repo (writes to .pi/settings.json)
+pi install -l git:github.com/coctostan/pi-kota
 ```
 
-This adds the package to `.pi/settings.json` (project) or `~/.pi/agent/settings.json` (global). You can also edit the file manually:
+By default, `pi install` is **global** and adds the package to `~/.pi/agent/settings.json`.
+Use `-l` for a **project-local** install (adds it to `.pi/settings.json`).
+
+For reproducible installs, you can optionally pin to a git tag (or commit SHA), for example:
+
+```bash
+pi install -l git:github.com/coctostan/pi-kota@v0.1.0
+```
+
+You can also edit the settings file manually:
 
 ```json
 {
