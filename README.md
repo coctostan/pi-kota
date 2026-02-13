@@ -4,7 +4,7 @@
 
 > **Code intelligence that doesn't eat your context window.**
 
-A [pi](https://github.com/mariozechner/pi-mono) extension that gives your coding agent a persistent, dependency-aware brain for TypeScript and JavaScript repos — powered by [KotaDB](https://github.com/nicobailon/kotadb) over MCP, with built-in context pruning to keep long sessions sharp.
+A [pi](https://github.com/mariozechner/pi-mono) extension that gives your coding agent a persistent, dependency-aware brain for TypeScript and JavaScript repos — powered by [KotaDB](https://github.com/jayminwest/kotadb) over MCP, with built-in context pruning to keep long sessions sharp.
 
 ---
 
@@ -240,7 +240,7 @@ See [`docs/design.md`](docs/design.md) for design background (draft; README + `s
 
 ## 🙏 Attribution
 
-pi-kota is built on top of [KotaDB](https://github.com/nicobailon/kotadb), created by **Nico Bailon**. Big thanks to Nico for designing and maintaining the code intelligence engine that powers this extension.
+pi-kota is built on top of [KotaDB](https://github.com/jayminwest/kotadb), created by **Nico Bailon**. Big thanks to Nico for designing and maintaining the code intelligence engine that powers this extension.
 
 ---
 
